@@ -10,6 +10,7 @@ import (
 
     flow "github.com/dministrator/flow/pkg/flow"
     orm "github.com/dministrator/flow/internal/orm"
+    "github.com/uptrace/bun"
     _ "modernc.org/sqlite"
 )
 
@@ -43,16 +44,32 @@ func main() {
         log.Fatalf("auto migrate: %v", err)
     }
 
-    // insert a sample record
-    db := app.Bun()
+    // insert a sample record using the Flow helper
     p := &Post{Title: "Hello from bun demo", PublishedAt: time.Now()}
-    if _, err := db.NewInsert().Model(p).Exec(ctx); err != nil {
+    if err := flow.Insert(ctx, app, p); err != nil {
         log.Fatalf("insert: %v", err)
     }
 
     var got Post
-    if err := db.NewSelect().Model(&got).Where("title = ?", "Hello from bun demo").Scan(ctx); err != nil {
-        log.Fatalf("select: %v", err)
+    if err := flow.FindByPK(ctx, app, &got, p.ID); err != nil {
+        log.Fatalf("find by pk: %v", err)
     }
     fmt.Printf("retrieved post: %#v\n", got)
+
+    // demo RunInTx: insert a post inside a transaction
+    if err := flow.RunInTx(ctx, app, func(ctx context.Context, tx *bun.Tx) error {
+        p2 := &Post{Title: "tx-post", PublishedAt: time.Now()}
+        if _, err := tx.NewInsert().Model(p2).Exec(ctx); err != nil {
+            return err
+        }
+        return nil
+    }); err != nil {
+        log.Fatalf("transaction insert failed: %v", err)
+    }
+
+    var txGot Post
+    if err := app.Bun().NewSelect().Model(&txGot).Where("title = ?", "tx-post").Scan(ctx); err != nil {
+        log.Fatalf("select tx-post: %v", err)
+    }
+    fmt.Printf("tx inserted post: %#v\n", txGot)
 }

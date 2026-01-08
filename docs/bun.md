@@ -63,18 +63,29 @@ func main() {
         log.Fatalf("auto migrate: %v", err)
     }
 
-    // Basic insert/select with bun via the App
-    db := app.Bun()
+    // Basic insert/select using the Flow helpers
     p := &Post{Title: "Hello Bun", PublishedAt: time.Now()}
-    if _, err := db.NewInsert().Model(p).Exec(ctx); err != nil {
-        log.Fatalf("insert: %v", err)
+    if err := flow.Insert(ctx, app, p); err != nil {
+        log.Fatalf("insert via helper: %v", err)
     }
 
     var got Post
-    if err := db.NewSelect().Model(&got).Where("title = ?", "Hello Bun").Scan(ctx); err != nil {
-        log.Fatalf("select: %v", err)
+    if err := flow.FindByPK(ctx, app, &got, p.ID); err != nil {
+        log.Fatalf("find by pk: %v", err)
     }
     fmt.Printf("got post: %#v\n", got)
+
+    // Transactional example using RunInTx — useful for multiple related ops
+    if err := flow.RunInTx(ctx, app, func(ctx context.Context, tx *bun.Tx) error {
+        // use tx for fine-grained control inside the transaction
+        p2 := &Post{Title: "InsideTx", PublishedAt: time.Now()}
+        if _, err := tx.NewInsert().Model(p2).Exec(ctx); err != nil {
+            return err
+        }
+        return nil
+    }); err != nil {
+        log.Fatalf("transaction failed: %v", err)
+    }
 }
 ```
 
