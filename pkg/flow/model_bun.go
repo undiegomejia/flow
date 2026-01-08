@@ -8,6 +8,7 @@ package flow
 import (
     "context"
     "fmt"
+    "reflect"
 
     "github.com/uptrace/bun"
 )
@@ -98,7 +99,17 @@ func Update(ctx context.Context, app *App, model interface{}) error {
     if db == nil {
         return fmt.Errorf("bun DB not configured on app")
     }
-    if _, err := db.NewUpdate().Model(model).WherePK().Exec(ctx); err != nil {
+    // attempt to use WherePK; if it fails due to missing PK tags, fall back to id lookup
+    if _, err := db.NewUpdate().Model(model).WherePK().Exec(ctx); err == nil {
+        return nil
+    }
+
+    // fallback: try to find ID field via reflection
+    rid, err := extractID(model)
+    if err != nil {
+        return err
+    }
+    if _, err := db.NewUpdate().Model(model).Where("id = ?", rid).Exec(ctx); err != nil {
         return err
     }
     return nil
@@ -110,10 +121,38 @@ func Delete(ctx context.Context, app *App, model interface{}) error {
     if db == nil {
         return fmt.Errorf("bun DB not configured on app")
     }
-    if _, err := db.NewDelete().Model(model).WherePK().Exec(ctx); err != nil {
+    if _, err := db.NewDelete().Model(model).WherePK().Exec(ctx); err == nil {
+        return nil
+    }
+
+    rid, err := extractID(model)
+    if err != nil {
+        return err
+    }
+    if _, err := db.NewDelete().Model(model).Where("id = ?", rid).Exec(ctx); err != nil {
         return err
     }
     return nil
+}
+
+// extractID tries to read an `ID` field from a model struct via reflection.
+func extractID(model interface{}) (interface{}, error) {
+    v := reflect.ValueOf(model)
+    if v.Kind() == reflect.Ptr {
+        v = v.Elem()
+    }
+    if v.Kind() != reflect.Struct {
+        return nil, fmt.Errorf("model is not a struct")
+    }
+    f := v.FieldByName("ID")
+    if !f.IsValid() {
+        // try lowercase id
+        f = v.FieldByName("Id")
+        if !f.IsValid() {
+            return nil, fmt.Errorf("model does not have ID field")
+        }
+    }
+    return f.Interface(), nil
 }
 
 // FindByPK loads a model by primary key into dest.
