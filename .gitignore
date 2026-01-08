@@ -1,0 +1,9 @@
+cat <<EOF > .gitignore
+/bin/
+/vendor/
+/tmp/
+.env
+.idea/
+.vscode/
+*.log
+EOF
