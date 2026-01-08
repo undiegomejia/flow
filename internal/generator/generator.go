@@ -7,6 +7,7 @@ import (
     "path/filepath"
     "strings"
     "text/template"
+    "time"
 )
 
 // generateFile renders tmpl with data and writes it to dstPath. It will
@@ -69,13 +70,43 @@ func GenerateScaffold(projectRoot, name string) ([]string, error) {
         return created, err
     }
     created = append(created, mpath)
-    // views: index and show
+    // views: index, show, new, edit
     viewsDir := filepath.Join(projectRoot, "app", "views", name)
-    _ = os.MkdirAll(viewsDir, 0o755)
+    if err := os.MkdirAll(viewsDir, 0o755); err != nil {
+        return created, err
+    }
     idxPath := filepath.Join(viewsDir, "index.html")
     showPath := filepath.Join(viewsDir, "show.html")
-    _ = os.WriteFile(idxPath, []byte("<h1>Index for "+name+"</h1>"), 0o644)
-    _ = os.WriteFile(showPath, []byte("<h1>Show " + name + "</h1>"), 0o644)
-    created = append(created, idxPath, showPath)
+    newPath := filepath.Join(viewsDir, "new.html")
+    editPath := filepath.Join(viewsDir, "edit.html")
+    // write using templates
+    _ = os.WriteFile(idxPath, []byte(viewIndexTmpl), 0o644)
+    _ = os.WriteFile(showPath, []byte(viewShowTmpl), 0o644)
+    _ = os.WriteFile(newPath, []byte(viewNewTmpl), 0o644)
+    _ = os.WriteFile(editPath, []byte(viewEditTmpl), 0o644)
+    created = append(created, idxPath, showPath, newPath, editPath)
+
+    // migrations: create timestamped up/down SQL files under db/migrate
+    migDir := filepath.Join(projectRoot, "db", "migrate")
+    if err := os.MkdirAll(migDir, 0o755); err != nil {
+        return created, err
+    }
+    ts := TimestampNow()
+    table := TableName(name)
+    upName := fmt.Sprintf("%s_create_%s.up.sql", ts, table)
+    downName := fmt.Sprintf("%s_create_%s.down.sql", ts, table)
+    upPath := filepath.Join(migDir, upName)
+    downPath := filepath.Join(migDir, downName)
+    // render migration templates
+    if err := generateFile(migrationUpTmpl, map[string]string{"Timestamp": ts, "Table": table}, upPath, false); err != nil {
+        return created, err
+    }
+    if err := generateFile(migrationDownTmpl, map[string]string{"Timestamp": ts, "Table": table}, downPath, false); err != nil {
+        return created, err
+    }
+    created = append(created, upPath, downPath)
+
+    // small delay to avoid duplicate timestamps when called rapidly
+    time.Sleep(1 * time.Second)
     return created, nil
 }
