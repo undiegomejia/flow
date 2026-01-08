@@ -37,7 +37,15 @@ func (v *ViewManager) Render(name string, data interface{}, ctx *Context) error 
 	if err != nil {
 		return err
 	}
-	return ctx.RenderTemplate(tpl, filepath.Base(name)+".html", data)
+	// Prefer executing a "content" template (common pattern where views
+	// define {{ define "content" }}...{{ end }} and layouts render that
+	// via {{ template "content" . }}). If no "content" template exists,
+	// fall back to executing the parsed file's base name (e.g. "show.html").
+	execName := "content"
+	if tpl.Lookup(execName) == nil {
+		execName = filepath.Base(name) + ".html"
+	}
+	return ctx.RenderTemplate(tpl, execName, data)
 }
 
 func (v *ViewManager) loadTemplate(name string) (*template.Template, error) {
