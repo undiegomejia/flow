@@ -17,11 +17,11 @@ This README gives a concise introduction, quickstart, and reference for the main
 
 ## Quickstart (run the example)
 
-The repository contains a small example app under `examples/simple`. To run it from WSL or a Unix-like environment:
+The repository contains a small example app under `examples/simple`. To run it from a Linux environment (or WSL on Windows):
 
 ```bash
-# from the repository root (WSL)
-cd /home/dministrator/repos/flow
+# from the repository root. Replace <repo_root> with your repository path.
+cd <repo_root>
 go run ./examples/simple
 ```
 
@@ -33,10 +33,11 @@ curl http://localhost:3000/users/1
 
 The example demonstrates controllers and views (see `examples/simple/app/controllers` and `examples/simple/app/views`).
 
-There is also a Bun ORM demo that demonstrates wiring the Bun adapter into the `App`, running `AutoMigrate`, and doing basic DB operations:
+There is also a Bun ORM demo that demonstrates wiring the Bun adapter into the `App`, running `AutoMigrate`, and doing basic DB operations (Linux/WSL):
 
 ```bash
-# from the repository root (WSL)
+# from the repository root. Replace <repo_root> with your repository path.
+cd <repo_root>
 go run ./examples/bun_demo
 ```
 
@@ -46,14 +47,16 @@ If you want a quick compile/run check for generated models, see `internal/genera
 
 ## Install & Tests
 
-Make sure you have Go 1.20+ (project uses module mode). From the repository root:
+Make sure you have Go 1.20+ (project uses module mode). These commands assume a Linux environment — on Windows, run them inside WSL.
+
+From the repository root:
 
 ```bash
-# run all tests
-wsl bash -lc "cd /home/dministrator/repos/flow && go test ./... -v"
+# run all tests (replace <repo_root> with your repository path)
+cd <repo_root> && go test ./... -v
 
-# build the project
-wsl bash -lc "cd /home/dministrator/repos/flow && go build ./..."
+# build the project (replace <repo_root> with your repository path)
+cd <repo_root> && go build ./...
 ```
 
 ## Key Concepts and Files
