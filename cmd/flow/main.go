@@ -177,11 +177,15 @@ var genControllerCmd = &cobra.Command{
 }
 
 var genModelCmd = &cobra.Command{
-    Use:   "model [name]",
-    Short: "Generate a model",
-    Args:  cobra.ExactArgs(1),
+    Use:   "model [name] [fields...]",
+    Short: "Generate a model (optionally with fields, e.g. title:string published_at:datetime)",
+    Args:  cobra.MinimumNArgs(1),
     RunE: func(cmd *cobra.Command, args []string) error {
         name := args[0]
+        fields := []string{}
+        if len(args) > 1 {
+            fields = args[1:]
+        }
         root := generateTarget
         if root == "" {
             var err error
@@ -190,7 +194,7 @@ var genModelCmd = &cobra.Command{
                 return err
             }
         }
-        dst, err := gen.GenerateModel(root, name)
+        dst, err := gen.GenerateModel(root, name, fields...)
         if err != nil {
             return err
         }
@@ -200,11 +204,15 @@ var genModelCmd = &cobra.Command{
 }
 
 var genScaffoldCmd = &cobra.Command{
-    Use:   "scaffold [name]",
-    Short: "Generate scaffold (controller, model, views)",
-    Args:  cobra.ExactArgs(1),
+    Use:   "scaffold [name] [fields...]",
+    Short: "Generate scaffold (controller, model, views) optionally with fields",
+    Args:  cobra.MinimumNArgs(1),
     RunE: func(cmd *cobra.Command, args []string) error {
         name := args[0]
+        fields := []string{}
+        if len(args) > 1 {
+            fields = args[1:]
+        }
         root := generateTarget
         if root == "" {
             var err error
@@ -213,7 +221,7 @@ var genScaffoldCmd = &cobra.Command{
                 return err
             }
         }
-        created, err := gen.GenerateScaffold(root, name)
+        created, err := gen.GenerateScaffold(root, name, fields...)
         if err != nil {
             return err
         }
