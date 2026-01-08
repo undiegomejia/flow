@@ -7,6 +7,7 @@
 package flow
 
 import (
+	"fmt"
 	"net/http"
 
 	routerpkg "github.com/dministrator/flow/internal/router"
@@ -27,28 +28,59 @@ func NewRouter(app *App) *Router {
 	return &Router{inner: routerpkg.New(), app: app}
 }
 
-// Get registers a GET handler for the given pattern.
-func (r *Router) Get(pattern string, h http.HandlerFunc) { r.inner.Get(pattern, h) }
+// Get registers a GET handler that accepts a *flow.Context for the given pattern.
+// The provided handler will be adapted into an http.HandlerFunc using the
+// Router's App reference (may be nil for tests).
+func (r *Router) Get(pattern string, h func(*Context)) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	r.inner.Get(pattern, wrapped)
+}
 
-// Post registers a POST handler for the given pattern.
-func (r *Router) Post(pattern string, h http.HandlerFunc) { r.inner.Post(pattern, h) }
+// Post registers a POST handler that accepts a *flow.Context.
+func (r *Router) Post(pattern string, h func(*Context)) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	r.inner.Post(pattern, wrapped)
+}
 
-// Put registers a PUT handler for the given pattern.
-func (r *Router) Put(pattern string, h http.HandlerFunc) { r.inner.Put(pattern, h) }
+// Put registers a PUT handler that accepts a *flow.Context.
+func (r *Router) Put(pattern string, h func(*Context)) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	r.inner.Put(pattern, wrapped)
+}
 
-// Patch registers a PATCH handler for the given pattern.
-func (r *Router) Patch(pattern string, h http.HandlerFunc) { r.inner.Patch(pattern, h) }
+// Patch registers a PATCH handler that accepts a *flow.Context.
+func (r *Router) Patch(pattern string, h func(*Context)) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	r.inner.Patch(pattern, wrapped)
+}
 
-// Delete registers a DELETE handler for the given pattern.
-func (r *Router) Delete(pattern string, h http.HandlerFunc) { r.inner.Delete(pattern, h) }
+// Delete registers a DELETE handler that accepts a *flow.Context.
+func (r *Router) Delete(pattern string, h func(*Context)) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	r.inner.Delete(pattern, wrapped)
+}
 
 // Resources wires a flow.Resource into RESTful routes using the conventional
 // path base. It uses MakeResourceAdapter to adapt the Resource to the
 // internal router.ResourceController.
 func (r *Router) Resources(base string, res Resource) error {
 	if r.app == nil {
-		// adapter requires app for context; return early to avoid panics
-		return r.inner.Resources(base, nil)
+		return fmt.Errorf("router: cannot register resources without an App; provide an App to NewRouter")
 	}
 	return r.inner.Resources(base, MakeResourceAdapter(r.app, res))
 }
@@ -61,3 +93,4 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // Handler returns the underlying http.Handler so the Router can be used
 // directly with net/http servers.
 func (r *Router) Handler() http.Handler { return r.inner }
+
