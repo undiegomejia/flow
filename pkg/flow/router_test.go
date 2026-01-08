@@ -1,36 +1,73 @@
 package flow
 
 import (
+    "io"
+    "net/http"
     "net/http/httptest"
     "testing"
-
-    routerpkg "github.com/dministrator/flow/internal/router"
 )
 
-// dummy resource that writes the id param back
-type usersResource struct{}
+// UsersController is a minimal Resource implementation used for tests.
+type UsersController struct{ *Controller }
 
-func (u *usersResource) Index(ctx *Context)   { _ = ctx.JSON(200, map[string]string{"action": "index"}) }
-func (u *usersResource) New(ctx *Context)     { _ = ctx.JSON(200, map[string]string{"action": "new"}) }
-func (u *usersResource) Create(ctx *Context)  { _ = ctx.JSON(201, map[string]string{"action": "create"}) }
-func (u *usersResource) Show(ctx *Context)    { _ = ctx.JSON(200, map[string]string{"id": ctx.Param("id")}) }
-func (u *usersResource) Edit(ctx *Context)    { _ = ctx.JSON(200, map[string]string{"action": "edit"}) }
-func (u *usersResource) Update(ctx *Context)  { _ = ctx.JSON(200, map[string]string{"action": "update"}) }
-func (u *usersResource) Destroy(ctx *Context) { _ = ctx.JSON(200, map[string]string{"action": "destroy"}) }
+func NewUsersController(app *App) *UsersController {
+    return &UsersController{Controller: NewController(app)}
+}
 
-func TestPublicRouterResources(t *testing.T) {
-    app := New("test")
-    // register via MakeResourceAdapter directly on inner
-    rr := routerpkg.New()
-    if err := rr.Resources("users", MakeResourceAdapter(app, &usersResource{})); err != nil {
-        t.Fatalf("failed to register resources: %v", err)
+func (u *UsersController) Index(ctx *Context)   { ctx.W.WriteHeader(200) }
+func (u *UsersController) New(ctx *Context)     { ctx.W.WriteHeader(200) }
+func (u *UsersController) Create(ctx *Context)  { ctx.W.WriteHeader(200) }
+func (u *UsersController) Show(ctx *Context) {
+    // echo the :id param
+    _, _ = ctx.W.Write([]byte(ctx.Param("id")))
+}
+func (u *UsersController) Edit(ctx *Context)    { ctx.W.WriteHeader(200) }
+func (u *UsersController) Update(ctx *Context)  { ctx.W.WriteHeader(200) }
+func (u *UsersController) Destroy(ctx *Context) { ctx.W.WriteHeader(200) }
+
+func TestPublicRouterIntegration(t *testing.T) {
+    app := New("test-app")
+    r := NewRouter(app)
+
+    // simple GET with Context handler
+    r.Get("/hello", func(ctx *Context) {
+        _, _ = ctx.W.Write([]byte("world"))
+    })
+
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest("GET", "/hello", nil)
+    r.ServeHTTP(rr, req)
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected 200 for /hello, got %d", rr.Code)
+    }
+    body, _ := io.ReadAll(rr.Body)
+    if string(body) != "world" {
+        t.Fatalf("unexpected body: %s", string(body))
     }
 
-    // smoke test: GET /users/7 -> returns JSON with id
-    w := httptest.NewRecorder()
-    req := httptest.NewRequest("GET", "/users/7", nil)
-    rr.ServeHTTP(w, req)
-    if w.Code != 200 {
-        t.Fatalf("expected 200, got %d", w.Code)
+    // resources registration and param extraction
+    users := NewUsersController(app)
+    if err := r.Resources("users", users); err != nil {
+        t.Fatalf("Resources error: %v", err)
+    }
+
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest("GET", "/users/42", nil)
+    r.ServeHTTP(rr, req)
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected 200 for /users/42, got %d", rr.Code)
+    }
+    body, _ = io.ReadAll(rr.Body)
+    if string(body) != "42" {
+        t.Fatalf("expected body 42, got %s", string(body))
+    }
+
+    // method not allowed: POST to a GET-only route
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest("POST", "/hello", nil)
+    r.ServeHTTP(rr, req)
+    if rr.Code != http.StatusMethodNotAllowed {
+        t.Fatalf("expected 405 for POST /hello, got %d", rr.Code)
     }
 }
+
