@@ -12,6 +12,8 @@ This README gives a concise introduction, quickstart, and reference for the main
 - Cookie-based sessions & flash helpers (lightweight, no external deps).
 - Migration runner (timestamped up/down SQL) and CLI generator scaffolding (controllers, models, migrations).
 - A PoC Bun ORM adapter and `AutoMigrate` helper; generator now emits Bun-tagged model structs and SQL migrations when fields are provided.
+ - A PoC Bun ORM adapter and `AutoMigrate` helper; generator now emits Bun-tagged model structs and SQL migrations when fields are provided.
+ - Basic ORM helpers and CRUD/transaction helpers exposed on `pkg/flow`: `Insert`, `Update`, `Delete`, `FindByPK`, `BeginTx` and `RunInTx` to simplify transactional patterns and generated-model usage.
 
 ## Quickstart (run the example)
 
@@ -39,6 +41,8 @@ go run ./examples/bun_demo
 ```
 
 See `docs/bun.md` for more details on using generated Bun models and migrations.
+
+If you want a quick compile/run check for generated models, see `internal/generator/gen_compile_test.go` — it demonstrates generating a model into a temporary project, compiling a small program that uses the generated `Save`/`Delete` methods and running it to ensure end-to-end compilation.
 
 ## Install & Tests
 
@@ -125,6 +129,8 @@ New generator features:
 - `flow generate model NAME [fields...]` — generate a model with optional field definitions (eg. `title:string published_at:datetime`). The generator will emit Bun struct tags (`bun:"field_name"`) and a migration SQL with the specified columns.
 - `flow generate scaffold NAME [fields...]` — generate controller, model and views and add migration files; fields are forwarded to the model generator.
 - CLI: `cmd/flow` updated so `generate model` and `generate scaffold` accept variadic field args.
+ - Generated models now include small convenience methods (`Save(ctx, app)` and `Delete(ctx, app)`) which call into the `flow` CRUD helpers. This makes generated code immediately usable with the Bun PoC adapter.
+ - Generator integration tests: the repo contains CLI integration tests that build the CLI, run generators into a temp project, and assert generated files and migration SQL. There's also a compile-and-run test that builds a tiny program against the generated model to ensure the generated code compiles and runs.
 
 ## Contributing
 
@@ -148,6 +154,9 @@ The repository implements a working prototype with router, controllers, views (l
 - Generator upgrades to accept field lists and emit Bun-tagged models and migration SQL.
 - CLI generator commands accept field arguments (`flow generate model NAME [fields...]`, `flow generate scaffold NAME [fields...]`).
 - Documentation (`docs/bun.md`) and a runnable example (`examples/bun_demo`) demonstrating Bun usage.
+ - Basic ORM helper surface added to `pkg/flow`: `Insert`, `Update`, `Delete`, `FindByPK`, `BeginTx` and `RunInTx` plus transaction helpers used by generated models.
+ - Generator templates updated to include `Save` and `Delete` model methods so generated models are immediately usable.
+ - Integration tests for generator CLI and a compile/run test ensure generated code compiles and behaves as expected.
 
 Planned improvements:
 
