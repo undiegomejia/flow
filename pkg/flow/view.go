@@ -9,6 +9,7 @@ package flow
 import (
 	"fmt"
 	"html/template"
+	"os"
 	"path/filepath"
 	"sync"
 )
@@ -56,15 +57,43 @@ func (v *ViewManager) loadTemplate(name string) (*template.Template, error) {
 		return t, nil
 	}
 
-	// parse template from filesystem
-	path := filepath.Join(v.TemplateDir, name+".html")
-	tpl, err := template.ParseFiles(path)
+	// build list of candidate files: layouts, partials, shared, then the view
+	var files []string
+
+	// collect layouts (prefer application/layout order)
+	layoutGlob := filepath.Join(v.TemplateDir, "layouts", "*.html")
+	if lays, _ := filepath.Glob(layoutGlob); len(lays) > 0 {
+		files = append(files, lays...)
+	}
+
+	// collect partials
+	partialGlob := filepath.Join(v.TemplateDir, "partials", "*.html")
+	if parts, _ := filepath.Glob(partialGlob); len(parts) > 0 {
+		files = append(files, parts...)
+	}
+
+	// collect shared helpers (optional)
+	sharedGlob := filepath.Join(v.TemplateDir, "shared", "*.html")
+	if sh, _ := filepath.Glob(sharedGlob); len(sh) > 0 {
+		files = append(files, sh...)
+	}
+
+	// finally add the view file itself
+	viewPath := filepath.Join(v.TemplateDir, name+".html")
+	if _, err := os.Stat(viewPath); err != nil {
+		return nil, fmt.Errorf("view file not found: %s", viewPath)
+	}
+	files = append(files, viewPath)
+
+	// parse template set
+	tpl := template.New(filepath.Base(viewPath))
+	parsed, err := tpl.ParseFiles(files...)
 	if err != nil {
-		return nil, fmt.Errorf("parse template %s: %w", path, err)
+		return nil, fmt.Errorf("parse templates %v: %w", files, err)
 	}
 
 	v.mu.Lock()
-	v.cache[name] = tpl
+	v.cache[name] = parsed
 	v.mu.Unlock()
-	return tpl, nil
+	return parsed, nil
 }
