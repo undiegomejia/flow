@@ -27,6 +27,9 @@ import (
     "sync/atomic"
     "syscall"
     "time"
+
+    orm "github.com/dministrator/flow/internal/orm"
+    "github.com/uptrace/bun"
 )
 
 // Middleware is a function that wraps an http.Handler. Order matters: middleware
@@ -68,11 +71,35 @@ type App struct {
     server *http.Server
     // db is the optional database connection attached to the App.
     db *sql.DB
+    // bunAdapter holds an optional Bun adapter for ORM operations. If set,
+    // App.Bun() returns the underlying *bun.DB for convenience.
+    bunAdapter *orm.BunAdapter
 
     // state indicates whether the server is running: 0 = idle, 1 = running,
     // 2 = shutting down/stopped.
     state int32
 }
+
+    // SetBun attaches a BunAdapter to the App and also sets the underlying *sql.DB
+    // so existing DB helpers continue to work.
+    func (a *App) SetBun(b *orm.BunAdapter) {
+        if b == nil {
+            a.bunAdapter = nil
+            return
+        }
+        a.bunAdapter = b
+        if b.SQLDB != nil {
+            a.SetDB(b.SQLDB)
+        }
+    }
+
+    // Bun returns the underlying *bun.DB if configured, or nil otherwise.
+    func (a *App) Bun() *bun.DB {
+        if a == nil || a.bunAdapter == nil {
+            return nil
+        }
+        return a.bunAdapter.DB
+    }
 
 var (
     // ErrAppAlreadyRunning is returned when Start/Run is called on an already-running App.
@@ -85,6 +112,11 @@ type Option func(*App)
 // WithLogger sets a custom logger. If not provided, the standard log.Logger is used.
 func WithLogger(l Logger) Option {
     return func(a *App) { a.logger = l }
+}
+
+// WithBun attaches a BunAdapter to the App during construction.
+func WithBun(b *orm.BunAdapter) Option {
+    return func(a *App) { a.SetBun(b) }
 }
 
 // WithAddr sets the listen address (eg. ":3000").
