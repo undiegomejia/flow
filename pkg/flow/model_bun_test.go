@@ -89,3 +89,78 @@ func TestRunInTxRollback(t *testing.T) {
         t.Fatalf("expected no rows after rollback, found: %#v", got)
     }
 }
+
+func TestCRUDOperations(t *testing.T) {
+    adapter, err := orm.Connect("file::memory:?cache=shared")
+    if err != nil {
+        t.Fatalf("connect bun: %v", err)
+    }
+    defer adapter.Close()
+
+    app := New("bun-test-crud", WithBun(adapter))
+
+    type ItemCrud struct {
+        ID   int64  `bun:"id,pk,autoincrement"`
+        Name string `bun:"name"`
+    }
+
+    ctx := context.Background()
+    if err := AutoMigrate(ctx, app, (*ItemCrud)(nil)); err != nil {
+        t.Fatalf("auto migrate: %v", err)
+    }
+
+    // Insert using helper
+    it := &ItemCrud{Name: "crud-insert"}
+    if err := Insert(ctx, app, it); err != nil {
+        t.Fatalf("Insert failed: %v", err)
+    }
+    if it.ID == 0 {
+        t.Fatalf("expected inserted ID to be set")
+    }
+
+    // FindByPK
+    var got ItemCrud
+    if err := FindByPK(ctx, app, &got, it.ID); err != nil {
+        t.Fatalf("FindByPK failed: %v", err)
+    }
+    if got.Name != "crud-insert" {
+        t.Fatalf("unexpected name: %s", got.Name)
+    }
+
+    // Update
+    it.Name = "crud-updated"
+    if err := Update(ctx, app, it); err != nil {
+        t.Fatalf("Update failed: %v", err)
+    }
+    var got2 ItemCrud
+    if err := FindByPK(ctx, app, &got2, it.ID); err != nil {
+        t.Fatalf("FindByPK after update failed: %v", err)
+    }
+    if got2.Name != "crud-updated" {
+        t.Fatalf("update not applied, got: %s", got2.Name)
+    }
+
+    // Delete
+    if err := Delete(ctx, app, it); err != nil {
+        t.Fatalf("Delete failed: %v", err)
+    }
+    var after ItemCrud
+    if err := FindByPK(ctx, app, &after, it.ID); err == nil {
+        t.Fatalf("expected not found after delete, got: %#v", after)
+    }
+
+    // RunInTx commit path
+    if err := RunInTx(ctx, app, func(ctx context.Context, tx *bun.Tx) error {
+        it2 := &ItemCrud{Name: "tx-commit"}
+        if _, err := tx.NewInsert().Model(it2).Exec(ctx); err != nil {
+            return err
+        }
+        return nil
+    }); err != nil {
+        t.Fatalf("RunInTx commit failed: %v", err)
+    }
+    var committed ItemCrud
+    if err := app.Bun().NewSelect().Model(&committed).Where("name = ?", "tx-commit").Scan(ctx); err != nil {
+        t.Fatalf("expected committed row, scan failed: %v", err)
+    }
+}
