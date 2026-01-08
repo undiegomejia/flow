@@ -11,7 +11,7 @@ This README gives a concise introduction, quickstart, and reference for the main
 - Simple template loading with layout and partial support (conventions: `views/{controller}/{action}.html`, `views/layouts/*.html`, `views/partials/*`).
 - Cookie-based sessions & flash helpers (lightweight, no external deps).
 - Migration runner (timestamped up/down SQL) and CLI generator scaffolding (controllers, models, migrations).
-- Designed for testability: small units, adapters and good test coverage.
+- A PoC Bun ORM adapter and `AutoMigrate` helper; generator now emits Bun-tagged model structs and SQL migrations when fields are provided.
 
 ## Quickstart (run the example)
 
@@ -30,6 +30,15 @@ curl http://localhost:3000/users/1
 ```
 
 The example demonstrates controllers and views (see `examples/simple/app/controllers` and `examples/simple/app/views`).
+
+There is also a Bun ORM demo that demonstrates wiring the Bun adapter into the `App`, running `AutoMigrate`, and doing basic DB operations:
+
+```bash
+# from the repository root (WSL)
+go run ./examples/bun_demo
+```
+
+See `docs/bun.md` for more details on using generated Bun models and migrations.
 
 ## Install & Tests
 
@@ -111,6 +120,12 @@ There is an internal migrations runner that expects timestamped `*.up.sql` and `
 
 Check `internal/migrations` and `internal/generator` for the implementation and templates.
 
+New generator features:
+
+- `flow generate model NAME [fields...]` — generate a model with optional field definitions (eg. `title:string published_at:datetime`). The generator will emit Bun struct tags (`bun:"field_name"`) and a migration SQL with the specified columns.
+- `flow generate scaffold NAME [fields...]` — generate controller, model and views and add migration files; fields are forwarded to the model generator.
+- CLI: `cmd/flow` updated so `generate model` and `generate scaffold` accept variadic field args.
+
 ## Contributing
 
 The project is organized to be easy to contribute to:
@@ -127,13 +142,20 @@ Suggested issues to start with (examples):
 
 ## Project Status & Roadmap
 
-The repository implements a working prototype with router, controllers, views (layouts/partials), sessions, migrations, and generators. The next planned improvements include:
+The repository implements a working prototype with router, controllers, views (layouts/partials), sessions, migrations, and generators. Recent additions include:
+
+- A Proof-of-Concept Bun ORM adapter (`internal/orm`) and `pkg/flow` helpers (`WithBun`, `SetBun`, `App.Bun()` and `AutoMigrate`).
+- Generator upgrades to accept field lists and emit Bun-tagged models and migration SQL.
+- CLI generator commands accept field arguments (`flow generate model NAME [fields...]`, `flow generate scaffold NAME [fields...]`).
+- Documentation (`docs/bun.md`) and a runnable example (`examples/bun_demo`) demonstrating Bun usage.
+
+Planned improvements:
 
 - richer view helpers and FuncMap support,
-- optional ORM adapters (bun or gorm) and model helpers,
-- better generator templates and flags,
+- generator flags and options (eg. `--orm`, `--force`), and more robust field parsing (defaults, indexes, constraints),
+- a `flow migrate` CLI wrapper for applying migrations,
 - CI workflow and developer DX improvements (hot-reload integration),
-- fuller documentation and examples.
+- fuller documentation and more examples.
 
 ## License
 
