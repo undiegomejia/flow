@@ -139,13 +139,3 @@ The repository implements a working prototype with router, controllers, views (l
 
 This project is provided under an MIT-style license. Modify as appropriate for your needs.
 
----
-
-If you'd like, I can also:
-
-- add a short Quickstart `README` inside `examples/simple` with detailed instructions to run the demo locally,
-- add a `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`, or
-- open GitHub Issues from the plan we discussed earlier.
-
-Which of these would you like me to add next?
-
