@@ -146,6 +146,76 @@ func (c *Context) FormValue(key string) string {
 	return c.R.FormValue(key)
 }
 
+// Session returns the session store for the current request, or nil if
+// sessions are not configured. Use Session().Get/Set/Delete to manage
+// session data. Session writes a cookie on Set/Delete/Save.
+func (c *Context) Session() *Session {
+	return FromContext(c.R.Context())
+}
+
+// Flash helpers — store simple flash messages in session under the "_flash"
+// key. Each flash is a map[string]string with keys "kind" and "msg".
+type FlashEntry struct {
+	Kind string
+	Msg  string
+}
+
+// AddFlash adds a flash message of a given kind to the session.
+func (c *Context) AddFlash(kind, msg string) error {
+	s := c.Session()
+	if s == nil {
+		return fmt.Errorf("flash: session not configured")
+	}
+	var list []map[string]string
+	if v, ok := s.Get("_flash"); ok {
+		if arr, ok := v.([]interface{}); ok {
+			for _, it := range arr {
+				if m, ok := it.(map[string]interface{}); ok {
+					entry := map[string]string{}
+					if k, ok := m["kind"].(string); ok {
+						entry["kind"] = k
+					}
+					if mmsg, ok := m["msg"].(string); ok {
+						entry["msg"] = mmsg
+					}
+					list = append(list, entry)
+				}
+			}
+		}
+	}
+	list = append(list, map[string]string{"kind": kind, "msg": msg})
+	return s.Set("_flash", list)
+}
+
+// Flashes returns and clears flash messages from the session.
+func (c *Context) Flashes() ([]FlashEntry, error) {
+	s := c.Session()
+	if s == nil {
+		return nil, fmt.Errorf("flash: session not configured")
+	}
+	v, _ := s.Get("_flash")
+	var entries []FlashEntry
+	if v != nil {
+		if arr, ok := v.([]interface{}); ok {
+			for _, it := range arr {
+				if m, ok := it.(map[string]interface{}); ok {
+					fe := FlashEntry{}
+					if k, ok := m["kind"].(string); ok {
+						fe.Kind = k
+					}
+					if mm, ok := m["msg"].(string); ok {
+						fe.Msg = mm
+					}
+					entries = append(entries, fe)
+				}
+			}
+		}
+	}
+	// clear flashes
+	_ = s.Delete("_flash")
+	return entries, nil
+}
+
 // Error writes a simple error response with the provided status and message.
 // It is intentionally minimal; projects may replace this with HTML error
 // pages in their App configuration.
@@ -160,3 +230,4 @@ func (c *Context) Error(status int, msg string) {
 
 // TODO: add helpers for file uploads, streaming responses, template caching,
 // secure cookie helpers, and content negotiation as the framework evolves.
+

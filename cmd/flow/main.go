@@ -18,6 +18,10 @@ import (
     flowpkg "github.com/dministrator/flow/pkg/flow"
     routerpkg "github.com/dministrator/flow/internal/router"
     "net/http"
+    "database/sql"
+
+    gen "github.com/dministrator/flow/internal/generator"
+    mig "github.com/dministrator/flow/internal/migrations"
 )
 
 const version = "0.1.0"
@@ -38,6 +42,8 @@ var rootCmd = &cobra.Command{
 func init() {
     rootCmd.AddCommand(serveCmd)
     rootCmd.AddCommand(versionCmd)
+    rootCmd.AddCommand(dbCmd)
+    rootCmd.AddCommand(generateCmd)
 }
 
 var serveAddr string
@@ -87,4 +93,140 @@ var versionCmd = &cobra.Command{
     Run: func(cmd *cobra.Command, args []string) {
         fmt.Println("flow", version)
     },
+}
+
+var dbCmd = &cobra.Command{
+    Use:   "db",
+    Short: "Database tasks (migrate, rollback)",
+}
+
+var dbDir string
+var dbDriver string
+var dbDSN string
+
+var dbMigrateCmd = &cobra.Command{
+    Use:   "migrate",
+    Short: "Apply all pending migrations in a directory",
+    RunE: func(cmd *cobra.Command, args []string) error {
+        if dbDriver == "" || dbDSN == "" {
+            return fmt.Errorf("driver and dsn flags are required to run migrations")
+        }
+        db, err := sql.Open(dbDriver, dbDSN)
+        if err != nil {
+            return err
+        }
+        defer db.Close()
+        runner := &mig.MigrationRunner{}
+        return runner.ApplyAll(dbDir, db)
+    },
+}
+
+var dbRollbackCmd = &cobra.Command{
+    Use:   "rollback",
+    Short: "Rollback the most recent migration",
+    RunE: func(cmd *cobra.Command, args []string) error {
+        if dbDriver == "" || dbDSN == "" {
+            return fmt.Errorf("driver and dsn flags are required to rollback migrations")
+        }
+        db, err := sql.Open(dbDriver, dbDSN)
+        if err != nil {
+            return err
+        }
+        defer db.Close()
+        runner := &mig.MigrationRunner{}
+        return runner.RollbackLast(dbDir, db)
+    },
+}
+
+func init() {
+    dbCmd.AddCommand(dbMigrateCmd)
+    dbCmd.AddCommand(dbRollbackCmd)
+    dbCmd.PersistentFlags().StringVar(&dbDir, "dir", "db/migrate", "migrations directory")
+    dbCmd.PersistentFlags().StringVar(&dbDriver, "driver", "", "database driver (eg. postgres, mysql)")
+    dbCmd.PersistentFlags().StringVar(&dbDSN, "dsn", "", "database DSN")
+}
+
+var generateCmd = &cobra.Command{
+    Use:   "generate",
+    Short: "Code generators (controller, model, scaffold)",
+}
+
+var generateTarget string
+
+var genControllerCmd = &cobra.Command{
+    Use:   "controller [name]",
+    Short: "Generate a controller",
+    Args:  cobra.ExactArgs(1),
+    RunE: func(cmd *cobra.Command, args []string) error {
+        name := args[0]
+        root := generateTarget
+        if root == "" {
+            var err error
+            root, err = os.Getwd()
+            if err != nil {
+                return err
+            }
+        }
+        dst, err := gen.GenerateController(root, name)
+        if err != nil {
+            return err
+        }
+        fmt.Println("created", dst)
+        return nil
+    },
+}
+
+var genModelCmd = &cobra.Command{
+    Use:   "model [name]",
+    Short: "Generate a model",
+    Args:  cobra.ExactArgs(1),
+    RunE: func(cmd *cobra.Command, args []string) error {
+        name := args[0]
+        root := generateTarget
+        if root == "" {
+            var err error
+            root, err = os.Getwd()
+            if err != nil {
+                return err
+            }
+        }
+        dst, err := gen.GenerateModel(root, name)
+        if err != nil {
+            return err
+        }
+        fmt.Println("created", dst)
+        return nil
+    },
+}
+
+var genScaffoldCmd = &cobra.Command{
+    Use:   "scaffold [name]",
+    Short: "Generate scaffold (controller, model, views)",
+    Args:  cobra.ExactArgs(1),
+    RunE: func(cmd *cobra.Command, args []string) error {
+        name := args[0]
+        root := generateTarget
+        if root == "" {
+            var err error
+            root, err = os.Getwd()
+            if err != nil {
+                return err
+            }
+        }
+        created, err := gen.GenerateScaffold(root, name)
+        if err != nil {
+            return err
+        }
+        for _, c := range created {
+            fmt.Println("created", c)
+        }
+        return nil
+    },
+}
+
+func init() {
+    generateCmd.AddCommand(genControllerCmd)
+    generateCmd.AddCommand(genModelCmd)
+    generateCmd.AddCommand(genScaffoldCmd)
+    generateCmd.PersistentFlags().StringVar(&generateTarget, "target", "", "target project root (defaults to cwd)")
 }
