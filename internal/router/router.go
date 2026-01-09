@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -56,12 +57,15 @@ type ResourceController interface {
 }
 
 // route holds the compiled representation of a single route.
+type Middleware func(http.Handler) http.Handler
+
 type route struct {
-	method   string
-	pattern  string
-	segments []string // pattern split by '/'
-	handler  http.HandlerFunc
-	name     string
+	method     string
+	pattern    string
+	segments   []string // pattern split by '/'
+	handler    http.HandlerFunc
+	name       string
+	middleware []Middleware
 }
 
 // Router is a simple HTTP router that supports path parameters using the
@@ -88,6 +92,53 @@ func (r *Router) Handle(method, pattern string, h http.HandlerFunc) {
 	}
 	segs := splitPath(pattern)
 	rt := &route{method: strings.ToUpper(method), pattern: pattern, segments: segs, handler: h}
+	r.routes = append(r.routes, rt)
+}
+
+// HandleWith allows attaching per-route middleware for this route.
+func (r *Router) HandleWith(method, pattern string, h http.HandlerFunc, mws ...Middleware) {
+	if !strings.HasPrefix(pattern, "/") {
+		panic("router: pattern must begin with '/'")
+	}
+	segs := splitPath(pattern)
+	rt := &route{method: strings.ToUpper(method), pattern: pattern, segments: segs, handler: h, middleware: mws}
+	r.routes = append(r.routes, rt)
+}
+
+// HandleNamed registers a named route. If the name is already in use the function panics.
+func (r *Router) HandleNamed(name, method, pattern string, h http.HandlerFunc) {
+	if name == "" {
+		panic("router: route name cannot be empty")
+	}
+	// ensure uniqueness
+	for _, existing := range r.routes {
+		if existing.name == name {
+			panic(fmt.Sprintf("router: duplicate route name %s", name))
+		}
+	}
+	if !strings.HasPrefix(pattern, "/") {
+		panic("router: pattern must begin with '/'")
+	}
+	segs := splitPath(pattern)
+	rt := &route{method: strings.ToUpper(method), pattern: pattern, segments: segs, handler: h, name: name}
+	r.routes = append(r.routes, rt)
+}
+
+// HandleNamedWith registers a named route with per-route middleware.
+func (r *Router) HandleNamedWith(name, method, pattern string, h http.HandlerFunc, mws ...Middleware) {
+	if name == "" {
+		panic("router: route name cannot be empty")
+	}
+	for _, existing := range r.routes {
+		if existing.name == name {
+			panic(fmt.Sprintf("router: duplicate route name %s", name))
+		}
+	}
+	if !strings.HasPrefix(pattern, "/") {
+		panic("router: pattern must begin with '/'")
+	}
+	segs := splitPath(pattern)
+	rt := &route{method: strings.ToUpper(method), pattern: pattern, segments: segs, handler: h, name: name, middleware: mws}
 	r.routes = append(r.routes, rt)
 }
 
@@ -143,7 +194,12 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// inject params into context
 		ctx := context.WithValue(req.Context(), ctxParamsKey{}, params)
-		rt.handler(w, req.WithContext(ctx))
+		// build handler with route middleware (first registered is outer-most)
+		var final http.Handler = http.HandlerFunc(rt.handler)
+		for i := len(rt.middleware) - 1; i >= 0; i-- {
+			final = rt.middleware[i](final)
+		}
+		final.ServeHTTP(w, req.WithContext(ctx))
 		return
 	}
 
@@ -172,6 +228,34 @@ func splitPath(p string) []string {
 	}
 	parts := strings.Split(p, "/")
 	return parts
+}
+
+// URL builds a path for a named route by substituting params into the
+// named route's pattern. Returns an error if the name is unknown or if a
+// required param is missing. Param values are path-escaped.
+func (r *Router) URL(name string, params map[string]string) (string, error) {
+	for _, rt := range r.routes {
+		if rt.name == name {
+			if len(rt.segments) == 0 {
+				return "/", nil
+			}
+			parts := make([]string, 0, len(rt.segments))
+			for _, s := range rt.segments {
+				if strings.HasPrefix(s, ":") {
+					key := strings.TrimPrefix(s, ":")
+					v, ok := params[key]
+					if !ok {
+						return "", fmt.Errorf("router: missing param %s for route %s", key, name)
+					}
+					parts = append(parts, url.PathEscape(v))
+					continue
+				}
+				parts = append(parts, s)
+			}
+			return "/" + strings.Join(parts, "/"), nil
+		}
+	}
+	return "", fmt.Errorf("router: unknown route %s", name)
 }
 
 // normalizePath prepares an incoming request path for matching.
