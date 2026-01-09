@@ -75,6 +75,69 @@ func (r *Router) Delete(pattern string, h func(*Context)) {
 	r.inner.Delete(pattern, wrapped)
 }
 
+// With variants accept framework Middleware and attach them to the route.
+// The provided Middleware are applied in registration order (first is outer-most).
+func (r *Router) GetWith(pattern string, h func(*Context), mws ...Middleware) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	// convert flow.Middleware to routerpkg.Middleware
+	conv := make([]routerpkg.Middleware, 0, len(mws))
+	for _, mw := range mws {
+		conv = append(conv, routerpkg.Middleware(mw))
+	}
+	r.inner.GetWith(pattern, wrapped, conv...)
+}
+
+func (r *Router) PostWith(pattern string, h func(*Context), mws ...Middleware) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	conv := make([]routerpkg.Middleware, 0, len(mws))
+	for _, mw := range mws {
+		conv = append(conv, routerpkg.Middleware(mw))
+	}
+	r.inner.PostWith(pattern, wrapped, conv...)
+}
+
+func (r *Router) PutWith(pattern string, h func(*Context), mws ...Middleware) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	conv := make([]routerpkg.Middleware, 0, len(mws))
+	for _, mw := range mws {
+		conv = append(conv, routerpkg.Middleware(mw))
+	}
+	r.inner.PutWith(pattern, wrapped, conv...)
+}
+
+func (r *Router) PatchWith(pattern string, h func(*Context), mws ...Middleware) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	conv := make([]routerpkg.Middleware, 0, len(mws))
+	for _, mw := range mws {
+		conv = append(conv, routerpkg.Middleware(mw))
+	}
+	r.inner.PatchWith(pattern, wrapped, conv...)
+}
+
+func (r *Router) DeleteWith(pattern string, h func(*Context), mws ...Middleware) {
+	wrapped := func(w http.ResponseWriter, req *http.Request) {
+		ctx := NewContext(r.app, w, req)
+		h(ctx)
+	}
+	conv := make([]routerpkg.Middleware, 0, len(mws))
+	for _, mw := range mws {
+		conv = append(conv, routerpkg.Middleware(mw))
+	}
+	r.inner.DeleteWith(pattern, wrapped, conv...)
+}
+
 // Resources wires a flow.Resource into RESTful routes using the conventional
 // path base. It uses MakeResourceAdapter to adapt the Resource to the
 // internal router.ResourceController.
