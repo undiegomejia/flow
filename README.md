@@ -78,6 +78,40 @@ Notes:
 - Default ignore patterns include `.git`, `vendor` and `node_modules` to avoid noisy events.
 - Use `--watch-ext` to reduce noise and speed up the loop (recommended).
 
+## Enabling built-in middleware
+
+Flow includes several small, useful middleware constructors (logging, request id,
+timeout and simple metrics). You can enable them when constructing an `App`
+using the provided functional options. The `WithDefaultMiddleware()` option
+registers a sensible stack (Recovery, RequestID, Logging, Metrics).
+
+Example — enable the default middleware stack:
+
+```go
+import (
+	"time"
+	"github.com/dministrator/flow/pkg/flow"
+)
+
+app := flow.New("my-app",
+	flow.WithAddr(":3000"),
+	flow.WithDefaultMiddleware(),
+)
+// start the app
+_ = app.Start()
+```
+
+Example — customize middleware (add a per-request timeout):
+
+```go
+app := flow.New("my-app",
+	flow.WithAddr(":3000"),
+	flow.WithRequestID("X-Request-ID"),
+	flow.WithLogging(),
+	flow.WithTimeout(5*time.Second),
+)
+```
+
 ## Install & Tests
 
 Make sure you have Go 1.20+ (project uses module mode). These commands assume a Linux environment — on Windows, run them inside WSL.
