@@ -117,7 +117,55 @@ var dbMigrateCmd = &cobra.Command{
         }
         defer db.Close()
         runner := &mig.MigrationRunner{}
-        return runner.ApplyAll(dbDir, db)
+
+        // list applied before
+        appliedBefore, err := runner.AppliedMigrations(db)
+        if err != nil {
+            return err
+        }
+
+        pending, err := runner.PendingMigrations(dbDir, db)
+        if err != nil {
+            return err
+        }
+        if len(pending) == 0 {
+            fmt.Println("No pending migrations to apply.")
+            return nil
+        }
+        fmt.Println("Pending migrations:")
+        for _, p := range pending {
+            fmt.Println(" -", p)
+        }
+
+        if err := runner.ApplyAll(dbDir, db); err != nil {
+            return err
+        }
+
+        // list newly applied
+        appliedAfter, err := runner.AppliedMigrations(db)
+        if err != nil {
+            return err
+        }
+        // compute diff appliedAfter - appliedBefore
+        beforeSet := make(map[string]struct{}, len(appliedBefore))
+        for _, b := range appliedBefore {
+            beforeSet[b] = struct{}{}
+        }
+        var newly []string
+        for _, a := range appliedAfter {
+            if _, ok := beforeSet[a]; !ok {
+                newly = append(newly, a)
+            }
+        }
+        if len(newly) == 0 {
+            fmt.Println("No new migrations were applied.")
+            return nil
+        }
+        fmt.Println("Applied migrations:")
+        for _, n := range newly {
+            fmt.Println(" -", n)
+        }
+        return nil
     },
 }
 
@@ -134,13 +182,70 @@ var dbRollbackCmd = &cobra.Command{
         }
         defer db.Close()
         runner := &mig.MigrationRunner{}
-        return runner.RollbackLast(dbDir, db)
+
+        applied, err := runner.AppliedMigrations(db)
+        if err != nil {
+            return err
+        }
+        if len(applied) == 0 {
+            fmt.Println("No applied migrations found; nothing to rollback.")
+            return nil
+        }
+        last := applied[len(applied)-1]
+        fmt.Println("Rolling back migration:", last)
+        if err := runner.RollbackLast(dbDir, db); err != nil {
+            return err
+        }
+        fmt.Println("Rolled back:", last)
+        return nil
+    },
+}
+
+var dbStatusCmd = &cobra.Command{
+    Use:   "status",
+    Short: "Show applied and pending migrations",
+    RunE: func(cmd *cobra.Command, args []string) error {
+        if dbDriver == "" || dbDSN == "" {
+            return fmt.Errorf("driver and dsn flags are required to check status")
+        }
+        db, err := sql.Open(dbDriver, dbDSN)
+        if err != nil {
+            return err
+        }
+        defer db.Close()
+        runner := &mig.MigrationRunner{}
+        applied, err := runner.AppliedMigrations(db)
+        if err != nil {
+            return err
+        }
+        pending, err := runner.PendingMigrations(dbDir, db)
+        if err != nil {
+            return err
+        }
+        fmt.Println("Applied migrations:")
+        if len(applied) == 0 {
+            fmt.Println(" (none)")
+        } else {
+            for _, a := range applied {
+                fmt.Println(" -", a)
+            }
+        }
+        fmt.Println("Pending migrations:")
+        if len(pending) == 0 {
+            fmt.Println(" (none)")
+        } else {
+            for _, p := range pending {
+                fmt.Println(" -", p)
+            }
+        }
+        return nil
     },
 }
 
 func init() {
     dbCmd.AddCommand(dbMigrateCmd)
     dbCmd.AddCommand(dbRollbackCmd)
+    dbCmd.AddCommand(dbStatusCmd)
     dbCmd.PersistentFlags().StringVar(&dbDir, "dir", "db/migrate", "migrations directory")
     dbCmd.PersistentFlags().StringVar(&dbDriver, "driver", "", "database driver (eg. postgres, mysql)")
     dbCmd.PersistentFlags().StringVar(&dbDSN, "dsn", "", "database DSN")

@@ -202,3 +202,48 @@ func (m *MigrationRunner) unmarkApplied(db *sql.DB, base string) error {
     _, err := db.Exec("DELETE FROM flow_migrations WHERE name = ?", base)
     return err
 }
+
+// AppliedMigrations returns the names of applied migrations in applied order.
+func (m *MigrationRunner) AppliedMigrations(db *sql.DB) ([]string, error) {
+    if err := m.ensureTable(db); err != nil {
+        return nil, err
+    }
+    rows, err := db.Query("SELECT name FROM flow_migrations ORDER BY applied_at ASC")
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    var out []string
+    for rows.Next() {
+        var name string
+        if err := rows.Scan(&name); err != nil {
+            return nil, err
+        }
+        out = append(out, name)
+    }
+    return out, rows.Err()
+}
+
+// PendingMigrations returns the list of up migration base names that are not yet applied.
+func (m *MigrationRunner) PendingMigrations(dir string, db *sql.DB) ([]string, error) {
+    if err := m.ensureTable(db); err != nil {
+        return nil, err
+    }
+    ups, err := m.collect(dir, ".up.sql")
+    if err != nil {
+        return nil, err
+    }
+    sort.Strings(ups)
+    var out []string
+    for _, p := range ups {
+        base := strings.TrimSuffix(filepath.Base(p), ".up.sql")
+        applied, err := m.isApplied(db, base)
+        if err != nil {
+            return nil, err
+        }
+        if !applied {
+            out = append(out, base)
+        }
+    }
+    return out, nil
+}
