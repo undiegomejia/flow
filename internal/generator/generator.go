@@ -54,58 +54,38 @@ func GenerateModel(projectRoot, name string, fields ...string) (string, error) {
     mname := strings.Title(name)
     dst := filepath.Join(projectRoot, "app", "models", strings.ToLower(name)+".go")
 
-    // parse fields and build struct lines and migration columns
+    // parse fields and build struct lines and migration columns using FieldSpec
     var fieldsCodeLines []string
     var columnsLines []string
     needTime := false
-    for _, f := range fields {
-        // expected format: "name:type" (e.g. title:string)
-        parts := strings.SplitN(f, ":", 2)
-        fname := parts[0]
-        ftype := "string"
-        if len(parts) == 2 && parts[1] != "" {
-            ftype = parts[1]
-        }
-        // Go field name (TitleCase)
-        goName := strings.Title(fname)
-
-        // Map types
-        var goType string
-        var sqlType string
-        var notnull string
-        switch strings.ToLower(ftype) {
-        case "string", "text":
-            goType = "string"
-            sqlType = "TEXT"
-            notnull = " NOT NULL"
-        case "int", "integer":
-            goType = "int"
-            sqlType = "INTEGER"
-        case "int64":
-            goType = "int64"
-            sqlType = "INTEGER"
-        case "bool", "boolean":
-            goType = "bool"
-            sqlType = "BOOLEAN"
-        case "float", "float64":
-            goType = "float64"
-            sqlType = "REAL"
-        case "datetime", "time":
-            goType = "time.Time"
-            sqlType = "DATETIME"
+    specs, err := ParseFields(fields)
+    if err != nil {
+        return dst, err
+    }
+    for _, fs := range specs {
+        if strings.Contains(fs.GoType, "time.Time") || strings.Contains(fs.GoType, "*time.Time") {
             needTime = true
-        default:
-            // default to string
-            goType = "string"
-            sqlType = "TEXT"
         }
-
-        // struct tag: bun and json
-        tag := fmt.Sprintf("`bun:\"%s\" json:\"%s\"`", fname, fname)
-        fieldsCodeLines = append(fieldsCodeLines, fmt.Sprintf("    %s %s %s", goName, goType, tag))
+        // struct tag: bun and json; use omitempty for nullable
+        jsonTag := fs.Name
+        if fs.Nullable {
+            jsonTag = jsonTag + ",omitempty"
+        }
+        tag := fmt.Sprintf("`bun:\"%s\" json:\"%s\"`", fs.Name, jsonTag)
+        fieldsCodeLines = append(fieldsCodeLines, fmt.Sprintf("    %s %s %s", fs.GoName, fs.GoType, tag))
 
         // column SQL line (skip id/created/updated handled separately)
-        colLine := fmt.Sprintf("    %s %s%s", fname, sqlType, notnull)
+        notnull := ""
+        if !fs.Nullable {
+            notnull = " NOT NULL"
+        }
+        colLine := fmt.Sprintf("    %s %s%s", fs.Name, fs.SQLType, notnull)
+        if fs.Default != nil {
+            colLine = colLine + " DEFAULT " + *fs.Default
+        }
+        if fs.Unique {
+            colLine = colLine + " UNIQUE"
+        }
         columnsLines = append(columnsLines, colLine)
     }
 
@@ -174,33 +154,25 @@ func GenerateScaffold(projectRoot, name string, fields ...string) ([]string, err
     downName := fmt.Sprintf("%s_create_%s.down.sql", ts, table)
     upPath := filepath.Join(migDir, upName)
     downPath := filepath.Join(migDir, downName)
-    // compute columns SQL for migration based on fields
+    // compute columns SQL for migration based on fields (use ParseFields)
     var columnsLines []string
-    for _, f := range fields {
-        parts := strings.SplitN(f, ":", 2)
-        fname := parts[0]
-        ftype := "string"
-        if len(parts) == 2 && parts[1] != "" {
-            ftype = parts[1]
-        }
-        var sqlType string
-        var notnull string
-        switch strings.ToLower(ftype) {
-        case "string", "text":
-            sqlType = "TEXT"
+    specs2, err := ParseFields(fields)
+    if err != nil {
+        return created, err
+    }
+    for _, fs := range specs2 {
+        notnull := ""
+        if !fs.Nullable {
             notnull = " NOT NULL"
-        case "int", "integer", "int64":
-            sqlType = "INTEGER"
-        case "bool", "boolean":
-            sqlType = "BOOLEAN"
-        case "float", "float64":
-            sqlType = "REAL"
-        case "datetime", "time":
-            sqlType = "DATETIME"
-        default:
-            sqlType = "TEXT"
         }
-        columnsLines = append(columnsLines, fmt.Sprintf("    %s %s%s", fname, sqlType, notnull))
+        col := fmt.Sprintf("    %s %s%s", fs.Name, fs.SQLType, notnull)
+        if fs.Default != nil {
+            col = col + " DEFAULT " + *fs.Default
+        }
+        if fs.Unique {
+            col = col + " UNIQUE"
+        }
+        columnsLines = append(columnsLines, col)
     }
     cols := ""
     if len(columnsLines) > 0 {
