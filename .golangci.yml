@@ -6,23 +6,29 @@ linters:
   enable:
     - govet
     - staticcheck
-    - errcheck
-    - gofmt
-    - goimports
-    - gosimple
-    - unused
-    - ineffassign
-    - typecheck
-    - bodyclose
+    run:
+      timeout: 5m
+      tests: true
 
-issues:
-  exclude-use-default: false
+    linters:
+      enable:
+        - govet
+        - staticcheck
+        - errcheck
+        - gofmt
+        - goimports
+        - gosimple
+        - unused
+        - ineffassign
+        - typecheck
+        - bodyclose
 
-linters-settings:
-  errcheck:
-    # ignore common places where error checks are noisy
-    ignore: ["Close", "Write", "Flush"]
+    issues:
+      exclude-use-default: false
 
-exclude:
-  - _gen.go
-  - 
+    # Note: removed custom errcheck.ignore setting because some golangci-lint
+    # versions expect a string; keep default behavior to avoid config errors.
+    linters-settings: {}
+
+    exclude:
+      - _gen.go
