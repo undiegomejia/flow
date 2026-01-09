@@ -179,11 +179,32 @@ func GenerateScaffold(projectRoot, name string, fields ...string) ([]string, err
         cols = ",\n" + strings.Join(columnsLines, ",\n")
     }
 
-    // render migration templates
-    if err := generateFile(migrationUpTmpl, map[string]string{"Timestamp": ts, "Table": table, "Columns": cols}, upPath, false); err != nil {
+    // build extras: indexes (CREATE INDEX) and corresponding DROP INDEX for down
+    var extrasUpLines []string
+    var extrasDownLines []string
+    for _, fs := range specs2 {
+        if fs.Index {
+            idxName := fmt.Sprintf("idx_%s_%s", table, fs.Name)
+            extrasUpLines = append(extrasUpLines, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s(%s);", idxName, table, fs.Name))
+            extrasDownLines = append(extrasDownLines, fmt.Sprintf("DROP INDEX IF EXISTS %s;", idxName))
+        }
+    }
+    extrasUp := ""
+    if len(extrasUpLines) > 0 {
+        extrasUp = strings.Join(extrasUpLines, "\n") + "\n"
+    }
+    extrasDown := ""
+    if len(extrasDownLines) > 0 {
+        extrasDown = strings.Join(extrasDownLines, "\n") + "\n"
+    }
+
+    // render migration templates (include extras for indexes)
+    upData := map[string]string{"Timestamp": ts, "Table": table, "Columns": cols, "ExtrasUp": extrasUp}
+    downData := map[string]string{"Timestamp": ts, "Table": table, "ExtrasDown": extrasDown}
+    if err := generateFile(migrationUpTmpl, upData, upPath, false); err != nil {
         return created, err
     }
-    if err := generateFile(migrationDownTmpl, map[string]string{"Timestamp": ts, "Table": table}, downPath, false); err != nil {
+    if err := generateFile(migrationDownTmpl, downData, downPath, false); err != nil {
         return created, err
     }
     created = append(created, upPath, downPath)
