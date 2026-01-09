@@ -45,9 +45,10 @@ type FieldSpec struct {
 
 // ParseFields parses multiple field spec strings into FieldSpec objects.
 // Expected forms:
-//   name             (defaults to string)
-//   name:type        (e.g. age:int)
-//   name:type,opt1,opt2=val (e.g. price:decimal(10,2),default=0,nullable,index)
+//
+//	name             (defaults to string)
+//	name:type        (e.g. age:int)
+//	name:type,opt1,opt2=val (e.g. price:decimal(10,2),default=0,nullable,index)
 func ParseFields(inputs []string) ([]FieldSpec, error) {
 	out := make([]FieldSpec, 0, len(inputs))
 	for _, in := range inputs {

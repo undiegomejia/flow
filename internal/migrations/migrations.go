@@ -12,8 +12,10 @@ import (
 
 // MigrationRunner runs timestamped SQL migrations stored in a directory.
 // Migration files follow the naming convention:
-//   20260108120000_create_users.up.sql
-//   20260108120000_create_users.down.sql
+//
+//	20260108120000_create_users.up.sql
+//	20260108120000_create_users.down.sql
+//
 // ApplyAll executes all .up.sql files in ascending timestamp order.
 type MigrationRunner struct{}
 
