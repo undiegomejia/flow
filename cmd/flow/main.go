@@ -272,7 +272,10 @@ var genControllerCmd = &cobra.Command{
                 return err
             }
         }
-        dst, err := gen.GenerateController(root, name)
+        // read flags
+        force, _ := cmd.Flags().GetBool("force")
+        opts := gen.GenOptions{Force: force}
+        dst, err := gen.GenerateControllerWithOptions(root, name, opts)
         if err != nil {
             return err
         }
@@ -280,6 +283,7 @@ var genControllerCmd = &cobra.Command{
         return nil
     },
 }
+
 
 var genModelCmd = &cobra.Command{
     Use:   "model [name] [fields...]",
@@ -299,7 +303,10 @@ var genModelCmd = &cobra.Command{
                 return err
             }
         }
-        dst, err := gen.GenerateModel(root, name, fields...)
+        force, _ := cmd.Flags().GetBool("force")
+        // model generation currently supports --force to overwrite
+        opts := gen.GenOptions{Force: force}
+        dst, err := gen.GenerateModelWithOptions(root, name, opts, fields...)
         if err != nil {
             return err
         }
@@ -326,7 +333,11 @@ var genScaffoldCmd = &cobra.Command{
                 return err
             }
         }
-        created, err := gen.GenerateScaffold(root, name, fields...)
+        force, _ := cmd.Flags().GetBool("force")
+        skipMigs, _ := cmd.Flags().GetBool("skip-migrations")
+        noViews, _ := cmd.Flags().GetBool("no-views")
+        opts := gen.GenOptions{Force: force, SkipMigrations: skipMigs, NoViews: noViews}
+        created, err := gen.GenerateScaffoldWithOptions(root, name, opts, fields...)
         if err != nil {
             return err
         }
@@ -341,5 +352,10 @@ func init() {
     generateCmd.AddCommand(genControllerCmd)
     generateCmd.AddCommand(genModelCmd)
     generateCmd.AddCommand(genScaffoldCmd)
+    genControllerCmd.Flags().Bool("force", false, "overwrite existing files")
+    genModelCmd.Flags().Bool("force", false, "overwrite existing files")
+    genScaffoldCmd.Flags().Bool("force", false, "overwrite existing files")
+    genScaffoldCmd.Flags().Bool("skip-migrations", false, "do not create migration files")
+    genScaffoldCmd.Flags().Bool("no-views", false, "do not generate view files")
     generateCmd.PersistentFlags().StringVar(&generateTarget, "target", "", "target project root (defaults to cwd)")
 }
