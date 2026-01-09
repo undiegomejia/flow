@@ -1,6 +1,8 @@
 package generator
 
 import (
+    "fmt"
+    "strconv"
     "strings"
     "time"
 )
@@ -110,10 +112,49 @@ func ParseFieldSpec(input string) (FieldSpec, error) {
         low := strings.ToLower(base)
         if strings.HasPrefix(low, "decimal") || strings.HasPrefix(low, "numeric") {
             fs.GoType = "float64"
-            fs.SQLType = strings.ToUpper(base)
+            // parse precision/scale if present: decimal(10,2)
+            l := strings.Index(base, "(")
+            r := strings.LastIndex(base, ")")
+            if l != -1 && r != -1 && r > l+1 {
+                inner := base[l+1 : r]
+                parts := strings.SplitN(inner, ",", 2)
+                if len(parts) >= 1 {
+                    if p, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
+                        fs.Precision = p
+                    }
+                }
+                if len(parts) == 2 {
+                    if s, err := strconv.Atoi(strings.TrimSpace(parts[1])); err == nil {
+                        fs.Scale = s
+                    }
+                }
+                if fs.Precision > 0 {
+                    if fs.Scale > 0 {
+                        fs.SQLType = fmt.Sprintf("DECIMAL(%d,%d)", fs.Precision, fs.Scale)
+                    } else {
+                        fs.SQLType = fmt.Sprintf("DECIMAL(%d)", fs.Precision)
+                    }
+                } else {
+                    fs.SQLType = "DECIMAL"
+                }
+            } else {
+                fs.SQLType = "DECIMAL"
+            }
         } else if strings.HasPrefix(low, "varchar") || strings.HasPrefix(low, "char") {
             fs.GoType = "string"
-            fs.SQLType = strings.ToUpper(base)
+            l := strings.Index(base, "(")
+            r := strings.LastIndex(base, ")")
+            if l != -1 && r != -1 && r > l+1 {
+                inner := base[l+1 : r]
+                if sz, err := strconv.Atoi(strings.TrimSpace(inner)); err == nil {
+                    fs.Size = sz
+                    fs.SQLType = fmt.Sprintf("VARCHAR(%d)", sz)
+                } else {
+                    fs.SQLType = strings.ToUpper(base)
+                }
+            } else {
+                fs.SQLType = strings.ToUpper(base)
+            }
         } else {
             // default
             fs.GoType = "string"
