@@ -18,33 +18,66 @@ import (
 type MigrationRunner struct{}
 
 // ApplyAll applies all up migrations found in dir using the provided db.
+// This version tracks applied migrations in a `flow_migrations` table so
+// repeated runs are idempotent.
 func (m *MigrationRunner) ApplyAll(dir string, db *sql.DB) error {
+    // ensure migrations table exists
+    if err := m.ensureTable(db); err != nil {
+        return err
+    }
+
     ups, err := m.collect(dir, ".up.sql")
     if err != nil {
         return err
     }
     sort.Strings(ups)
     for _, p := range ups {
+        base := strings.TrimSuffix(filepath.Base(p), ".up.sql")
+        applied, err := m.isApplied(db, base)
+        if err != nil {
+            return err
+        }
+        if applied {
+            // skip already applied
+            continue
+        }
         if err := m.execFile(db, p); err != nil {
             return fmt.Errorf("apply %s: %w", filepath.Base(p), err)
+        }
+        if err := m.markApplied(db, base); err != nil {
+            return fmt.Errorf("mark applied %s: %w", base, err)
         }
     }
     return nil
 }
 
-// RollbackLast finds the latest migration pair and executes its down SQL.
+// RollbackLast finds the latest applied migration and executes its down SQL.
 func (m *MigrationRunner) RollbackLast(dir string, db *sql.DB) error {
-    downs, err := m.collect(dir, ".down.sql")
-    if err != nil {
+    // ensure migrations table exists
+    if err := m.ensureTable(db); err != nil {
         return err
     }
-    if len(downs) == 0 {
-        return fmt.Errorf("no down migrations found in %s", dir)
+
+    // find last applied migration
+    var base string
+    err := db.QueryRow("SELECT name FROM flow_migrations ORDER BY applied_at DESC LIMIT 1").Scan(&base)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return fmt.Errorf("no applied migrations found in %s", dir)
+        }
+        return err
     }
-    sort.Strings(downs)
-    last := downs[len(downs)-1]
-    if err := m.execFile(db, last); err != nil {
-        return fmt.Errorf("rollback %s: %w", filepath.Base(last), err)
+
+    // construct down file path
+    downPath := filepath.Join(dir, base+".down.sql")
+    if _, err := os.Stat(downPath); err != nil {
+        return fmt.Errorf("down migration not found for %s: %w", base, err)
+    }
+    if err := m.execFile(db, downPath); err != nil {
+        return fmt.Errorf("rollback %s: %w", filepath.Base(downPath), err)
+    }
+    if err := m.unmarkApplied(db, base); err != nil {
+        return fmt.Errorf("unmark applied %s: %w", base, err)
     }
     return nil
 }
@@ -101,7 +134,20 @@ func (m *MigrationRunner) ApplySingle(path string, db *sql.DB) error {
     if info.IsDir() {
         return fmt.Errorf("path is a directory: %s", path)
     }
-    return m.execFile(db, path)
+    // execute and mark applied if it's an up migration
+    if err := m.execFile(db, path); err != nil {
+        return err
+    }
+    if strings.HasSuffix(path, ".up.sql") {
+        if err := m.ensureTable(db); err != nil {
+            return err
+        }
+        base := strings.TrimSuffix(filepath.Base(path), ".up.sql")
+        if err := m.markApplied(db, base); err != nil {
+            return err
+        }
+    }
+    return nil
 }
 
 // ListMigrations returns file names of migrations (both up and down) in dir.
@@ -124,4 +170,35 @@ func (m *MigrationRunner) ListMigrations(dir string) ([]string, error) {
     }
     sort.Strings(out)
     return out, nil
+}
+
+// ensureTable creates the migrations tracking table if it does not exist.
+func (m *MigrationRunner) ensureTable(db *sql.DB) error {
+    _, err := db.Exec(`CREATE TABLE IF NOT EXISTS flow_migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );`)
+    return err
+}
+
+// isApplied checks if a migration (by base name) is already applied.
+func (m *MigrationRunner) isApplied(db *sql.DB, base string) (bool, error) {
+    var cnt int
+    err := db.QueryRow("SELECT count(1) FROM flow_migrations WHERE name = ?", base).Scan(&cnt)
+    if err != nil {
+        return false, err
+    }
+    return cnt > 0, nil
+}
+
+// markApplied records a migration as applied.
+func (m *MigrationRunner) markApplied(db *sql.DB, base string) error {
+    _, err := db.Exec("INSERT INTO flow_migrations(name) VALUES (?)", base)
+    return err
+}
+
+// unmarkApplied removes a migration record (used on rollback).
+func (m *MigrationRunner) unmarkApplied(db *sql.DB, base string) error {
+    _, err := db.Exec("DELETE FROM flow_migrations WHERE name = ?", base)
+    return err
 }

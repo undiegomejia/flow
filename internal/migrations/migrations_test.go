@@ -50,6 +50,26 @@ func TestApplyAndRollbackSQLite(t *testing.T) {
         t.Fatalf("expected table tests to exist, got %d", cnt)
     }
 
+    // verify migration tracking entry
+    var mcnt int
+    if err := db.QueryRow("SELECT count(1) FROM flow_migrations").Scan(&mcnt); err != nil {
+        t.Fatalf("query flow_migrations: %v", err)
+    }
+    if mcnt != 1 {
+        t.Fatalf("expected 1 applied migration, got %d", mcnt)
+    }
+
+    // re-run ApplyAll — should be idempotent and not add duplicate records
+    if err := runner.ApplyAll(migDir, db); err != nil {
+        t.Fatalf("apply all second time: %v", err)
+    }
+    if err := db.QueryRow("SELECT count(1) FROM flow_migrations").Scan(&mcnt); err != nil {
+        t.Fatalf("query flow_migrations after reapply: %v", err)
+    }
+    if mcnt != 1 {
+        t.Fatalf("expected 1 applied migration after reapply, got %d", mcnt)
+    }
+
     // rollback
     if err := runner.RollbackLast(migDir, db); err != nil {
         t.Fatalf("rollback last: %v", err)
@@ -59,5 +79,13 @@ func TestApplyAndRollbackSQLite(t *testing.T) {
     }
     if cnt != 0 {
         t.Fatalf("expected table tests to be dropped after rollback, got %d", cnt)
+    }
+
+    // ensure migration tracking entry removed
+    if err := db.QueryRow("SELECT count(1) FROM flow_migrations").Scan(&mcnt); err != nil {
+        t.Fatalf("query flow_migrations after rollback: %v", err)
+    }
+    if mcnt != 0 {
+        t.Fatalf("expected 0 applied migrations after rollback, got %d", mcnt)
     }
 }
