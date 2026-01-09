@@ -16,7 +16,7 @@ import (
 // WatchAndRun watches the given paths and runs the provided command (cmdArgs)
 // as a child process. On file changes it restarts the child. It returns when
 // the parent context is cancelled.
-func WatchAndRun(ctx context.Context, watchPaths []string, ignorePatterns []string, cmdArgs []string) error {
+func WatchAndRun(ctx context.Context, watchPaths []string, ignorePatterns []string, extFilters []string, cmdArgs []string) error {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -70,8 +70,8 @@ func WatchAndRun(ctx context.Context, watchPaths []string, ignorePatterns []stri
 					// ignore watcher add errors
 					return nil
 				}
-			return nil
-		})
+				return nil
+			})
 		}
 		return nil
 	}
@@ -83,6 +83,18 @@ func WatchAndRun(ctx context.Context, watchPaths []string, ignorePatterns []stri
 	// child process management
 	var mu sync.Mutex
 	var child *exec.Cmd
+	// normalize extFilters into a set of lowercase extensions with leading dot
+	allowedExts := map[string]struct{}{}
+	for _, e := range extFilters {
+		e = strings.TrimSpace(e)
+		if e == "" {
+			continue
+		}
+		if !strings.HasPrefix(e, ".") {
+			e = "." + e
+		}
+		allowedExts[strings.ToLower(e)] = struct{}{}
+	}
 	startChild := func() error {
 		mu.Lock()
 		defer mu.Unlock()
@@ -148,6 +160,13 @@ func WatchAndRun(ctx context.Context, watchPaths []string, ignorePatterns []stri
 			}
 			if ignored(ev.Name) {
 				continue
+			}
+			// extension filtering: if allowedExts is non-empty, only trigger for those extensions
+			if len(allowedExts) > 0 {
+				ext := strings.ToLower(filepath.Ext(ev.Name))
+				if _, ok := allowedExts[ext]; !ok {
+					continue
+				}
 			}
 			fmt.Printf("[watch] change detected: %s\n", ev.Name)
 			trigger = true
