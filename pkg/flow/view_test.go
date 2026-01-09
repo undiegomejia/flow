@@ -192,3 +192,32 @@ func TestViewManager_SetFuncMapClearsCache(t *testing.T) {
 		t.Fatalf("unexpected greet output v2: %q", out2)
 	}
 }
+
+func TestApp_WithViewsFuncMap(t *testing.T) {
+	tmp, err := ioutil.TempDir("", "vmtest_appfunc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
+	viewPath := filepath.Join(tmp, "hello", "world.html")
+	writeFile(t, viewPath, "{{define \"content\"}}{{cap .}}{{end}}")
+
+	// create app with FuncMap configured via option
+	app := New("testapp", WithViewsFuncMap(template.FuncMap{"cap": func(s string) string { return "CAP_" + s }}))
+	// set views directory to our temp dir
+	app.Views.TemplateDir = tmp
+	// ensure dev mode so parsing is deterministic for test
+	app.Views.SetDevMode(true)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	ctx := NewContext(app, rr, req)
+	if err := ctx.Render("hello/world", "bob"); err != nil {
+		t.Fatalf("render with app funcmap: %v", err)
+	}
+	out := rr.Body.String()
+	if out != "CAP_bob" {
+		t.Fatalf("unexpected output from app funcmap: %q", out)
+	}
+}

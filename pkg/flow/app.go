@@ -17,10 +17,11 @@ package flow
 
 import (
     "context"
+    "database/sql"
     "errors"
     "fmt"
+    "html/template"
     "log"
-    "database/sql"
     "net/http"
     "os"
     "os/signal"
@@ -154,6 +155,19 @@ func WithViewsDevMode(dev bool) Option {
             a.Views = NewViewManager("views")
         }
         a.Views.SetDevMode(dev)
+    }
+}
+
+// WithViewsFuncMap sets the template FuncMap on the ViewManager during App construction.
+func WithViewsFuncMap(m template.FuncMap) Option {
+    return func(a *App) {
+        if a == nil {
+            return
+        }
+        if a.Views == nil {
+            a.Views = NewViewManager("views")
+        }
+        a.Views.SetFuncMap(m)
     }
 }
 
