@@ -6,12 +6,12 @@
 // parameters, redirects, and binding request bodies.
 //
 // Design notes:
-// - Context is deliberately small and explicit. It does not perform magic.
-// - Parameter access reads from the request context (the router injects
-//   parameters). This keeps Context decoupled from routing internals while
-//   still permitting efficient access via the internal router helper.
-// - Rendering helpers return errors so controller code can decide how to
-//   handle failures (log, render an error page, etc.).
+//   - Context is deliberately small and explicit. It does not perform magic.
+//   - Parameter access reads from the request context (the router injects
+//     parameters). This keeps Context decoupled from routing internals while
+//     still permitting efficient access via the internal router helper.
+//   - Rendering helpers return errors so controller code can decide how to
+//     handle failures (log, render an error page, etc.).
 //
 // TODO: add helper for rendering layouts, template caching, and streaming
 // responses when those features are required.

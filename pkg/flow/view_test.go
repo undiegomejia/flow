@@ -2,7 +2,6 @@ package flow
 
 import (
 	"html/template"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -16,13 +15,13 @@ func writeFile(t *testing.T, path, content string) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdirall: %v", err)
 	}
-	if err := ioutil.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 }
 
 func TestViewManager_CacheVsDevMode(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "vmtest")
+	tmp, err := os.MkdirTemp("", "vmtest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +79,7 @@ func TestViewManager_CacheVsDevMode(t *testing.T) {
 }
 
 func TestViewManager_FuncMapAvailable(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "vmtest2")
+	tmp, err := os.MkdirTemp("", "vmtest2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +107,7 @@ func TestViewManager_FuncMapAvailable(t *testing.T) {
 }
 
 func TestViewManager_DefaultLayoutPrecedence(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "vmtest3")
+	tmp, err := os.MkdirTemp("", "vmtest3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +152,7 @@ func TestViewManager_DefaultLayoutPrecedence(t *testing.T) {
 }
 
 func TestViewManager_SetFuncMapClearsCache(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "vmtest4")
+	tmp, err := os.MkdirTemp("", "vmtest4")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +193,7 @@ func TestViewManager_SetFuncMapClearsCache(t *testing.T) {
 }
 
 func TestApp_WithViewsFuncMap(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "vmtest_appfunc")
+	tmp, err := os.MkdirTemp("", "vmtest_appfunc")
 	if err != nil {
 		t.Fatal(err)
 	}

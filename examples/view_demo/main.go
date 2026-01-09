@@ -15,7 +15,7 @@ func main() {
 	app := flow.New("view-demo",
 		flow.WithViewsDefaultLayout("layouts/application.html"),
 		flow.WithViewsFuncMap(template.FuncMap{
-			"year": func() string { return strconv.Itoa(time.Now().Year()) },
+			"year":  func() string { return strconv.Itoa(time.Now().Year()) },
 			"shout": func(s string) string { return strings.ToUpper(s) },
 		}),
 		flow.WithViewsDevMode(true),
