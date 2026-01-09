@@ -52,6 +52,21 @@ var serveCmd = &cobra.Command{
     Use:   "serve",
     Short: "Start the development server",
     RunE: func(cmd *cobra.Command, args []string) error {
+        // check flags
+        watch, _ := cmd.Flags().GetBool("watch")
+        noWatch, _ := cmd.Flags().GetBool("no-watch")
+        if watch && !noWatch {
+            // run watcher which spawns go run ./cmd/flow serve --no-watch ...
+            ctx, cancel := context.WithCancel(context.Background())
+            defer cancel()
+            // watch current directory by default
+            paths := []string{"."}
+            // build child args: serve --no-watch --addr <addr>
+            childArgs := []string{"serve", "--no-watch", "--addr", serveAddr}
+            return WatchAndRun(ctx, paths, childArgs)
+        }
+
+        // Normal in-process serve (or --no-watch child)
         app := flowpkg.New("flow", flowpkg.WithAddr(serveAddr))
 
         // small demo router: exposes a health endpoint and root index
@@ -85,6 +100,9 @@ var serveCmd = &cobra.Command{
 
 func init() {
     serveCmd.Flags().StringVar(&serveAddr, "addr", ":3000", "listen address for the server")
+    serveCmd.Flags().Bool("watch", false, "watch files and auto-restart server on changes")
+    // internal flag used by watcher to avoid recursive watch
+    serveCmd.Flags().Bool("no-watch", false, "(internal) do not start file watcher")
 }
 
 var versionCmd = &cobra.Command{
