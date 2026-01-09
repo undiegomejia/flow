@@ -71,8 +71,10 @@ var serveCmd = &cobra.Command{
 			return WatchAndRun(ctx, watchPaths, ignorePatterns, extFilters, childArgs)
 		}
 
-		// Normal in-process serve (or --no-watch child)
-		app := flowpkg.New("flow", flowpkg.WithAddr(serveAddr))
+	// Normal in-process serve (or --no-watch child)
+	// Use the default middleware stack in demo CLI server to provide
+	// sensible defaults (recovery, request-id, logging, metrics).
+	app := flowpkg.New("flow", flowpkg.WithAddr(serveAddr), flowpkg.WithDefaultMiddleware())
 
 		// small demo router: exposes a health endpoint and root index
 		r := routerpkg.New()
