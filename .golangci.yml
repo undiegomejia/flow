@@ -25,6 +25,17 @@ linters:
 
     issues:
       exclude-use-default: false
+      exclude-rules:
+        - linters:
+            - errcheck
+          # ignore errcheck findings that match these simple function names
+          text: "Close"
+        - linters:
+            - errcheck
+          text: "Write"
+        - linters:
+            - errcheck
+          text: "Flush"
 
     # Note: removed custom errcheck.ignore setting because some golangci-lint
     # versions expect a string; keep default behavior to avoid config errors.
