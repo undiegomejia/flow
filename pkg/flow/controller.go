@@ -4,10 +4,10 @@
 // action methods that accept a *flow.Context.
 //
 // This file implements:
-// - Controller: a small struct holding an App reference and helper methods
-// - Resource: an interface describing resource-style controller actions
-// - Adapter to convert a Resource implementation into the internal
-//   router.ResourceController (which uses http.Handler signatures).
+//   - Controller: a small struct holding an App reference and helper methods
+//   - Resource: an interface describing resource-style controller actions
+//   - Adapter to convert a Resource implementation into the internal
+//     router.ResourceController (which uses http.Handler signatures).
 package flow
 
 import (

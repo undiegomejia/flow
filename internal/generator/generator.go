@@ -51,7 +51,7 @@ type GenOptions struct {
 
 // GenerateControllerWithOptions generates a controller honoring options.
 func GenerateControllerWithOptions(projectRoot, name string, opts GenOptions) (string, error) {
-	cname := strings.Title(name) + "Controller"
+	cname := Title(name) + "Controller"
 	dst := filepath.Join(projectRoot, "app", "controllers", name+"_controller.go")
 	data := map[string]string{
 		"Package":    "controllers",
@@ -68,7 +68,7 @@ func GenerateModel(projectRoot, name string, fields ...string) (string, error) {
 
 // GenerateModelWithOptions generates a model and writes the model file, honoring options.
 func GenerateModelWithOptions(projectRoot, name string, opts GenOptions, fields ...string) (string, error) {
-	mname := strings.Title(name)
+	mname := Title(name)
 	dst := filepath.Join(projectRoot, "app", "models", strings.ToLower(name)+".go")
 
 	// parse fields and build struct lines and migration columns using FieldSpec

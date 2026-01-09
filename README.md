@@ -12,7 +12,8 @@ This README gives a concise introduction, quickstart, and reference for the main
 - Cookie-based sessions & flash helpers (lightweight, no external deps).
 - Migration runner (timestamped up/down SQL) and CLI generator scaffolding (controllers, models, migrations).
 - A PoC Bun ORM adapter and `AutoMigrate` helper; generator now emits Bun-tagged model structs and SQL migrations when fields are provided.
-- Basic ORM helpers and CRUD/transaction helpers exposed on `pkg/flow`: `Insert`, `Update`, `Delete`, `FindByPK`, `BeginTx` and `RunInTx` to simplify transactional patterns and generated-model usage.
+ - A PoC Bun ORM adapter and `AutoMigrate` helper; generator now emits Bun-tagged model structs and SQL migrations when fields are provided.
+ - Basic ORM helpers and CRUD/transaction helpers exposed on `pkg/flow`: `Insert`, `Update`, `Delete`, `FindByPK`, `BeginTx` and `RunInTx` to simplify transactional patterns and generated-model usage.
 
 ## Quickstart (run the example)
 
@@ -124,6 +125,27 @@ cd <repo_root> && go test ./... -v
 # build the project (replace <repo_root> with your repository path)
 cd <repo_root> && go build ./...
 ```
+
+## Formatting
+
+CI enforces `gofmt` formatting. To format the repository locally you can run the provided scripts:
+
+- On WSL / Linux / macOS:
+
+```bash
+./scripts/format.sh
+```
+
+- On Windows PowerShell (run from the repository root):
+
+```powershell
+.\scripts\format.ps1
+# add -Commit to automatically commit formatting changes
+.\scripts\format.ps1 -Commit
+```
+
+The scripts run `gofmt -w .` (and `goimports -w .` if available) and print any remaining files that need formatting. After running, stage and commit the changes before pushing.
+
 
 ## Key Concepts and Files
 
@@ -240,5 +262,4 @@ Planned improvements:
 ## License
 
 This project is provided under an MIT-style license. Modify as appropriate for your needs.
-
 

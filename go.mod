@@ -10,6 +10,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/uptrace/bun v1.1.0
 	github.com/uptrace/bun/dialect/sqlitedialect v1.1.0
+	golang.org/x/text v0.33.0
 	modernc.org/sqlite v1.11.0
 )
 
@@ -23,10 +24,10 @@ require (
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	golang.org/x/mod v0.3.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/tools v0.0.0-20201124115921-2c860bdd6e78 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/mod v0.31.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/tools v0.40.0 // indirect
 	lukechampine.com/uint128 v1.1.1 // indirect
 	modernc.org/cc/v3 v3.33.6 // indirect
 	modernc.org/ccgo/v3 v3.9.5 // indirect
