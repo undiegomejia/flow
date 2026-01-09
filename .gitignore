@@ -1,9 +1,51 @@
-cat <<EOF > .gitignore
+# Ignore build artifacts and binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.o
+*.out
+*.test
+
+# Common build/output directories
 /bin/
+/build/
+/dist/
+/obj/
+/target/
+
+# Go vendor directory (if used)
 /vendor/
-/tmp/
-.env
+
+# Example and CLI binaries
+cmd/*/flow
+examples/*/flow
+
+# Editor and OS files
 .idea/
 .vscode/
+*.swp
+*~
+.DS_Store
+
+# Logs and database files
 *.log
-EOF
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+
+# Node
+node_modules/
+
+# Coverage and cache
+coverage.out
+
+# Ignore temporary and backup files
+*.bak
+*.tmp
+
+# End of .gitignore
