@@ -128,4 +128,3 @@ func (a *resourceAdapter) Destroy(w http.ResponseWriter, req *http.Request) {
 //  // wiring with internal router:
 //  r := router.New()
 //  r.Resources("users", flow.MakeResourceAdapter(app, NewUsersController(app)))
-

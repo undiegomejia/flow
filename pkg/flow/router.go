@@ -156,4 +156,3 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // Handler returns the underlying http.Handler so the Router can be used
 // directly with net/http servers.
 func (r *Router) Handler() http.Handler { return r.inner }
-

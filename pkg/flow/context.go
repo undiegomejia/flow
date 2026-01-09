@@ -239,4 +239,3 @@ func (c *Context) Error(status int, msg string) {
 
 // TODO: add helpers for file uploads, streaming responses, template caching,
 // secure cookie helpers, and content negotiation as the framework evolves.
-

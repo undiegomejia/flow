@@ -16,21 +16,21 @@
 package flow
 
 import (
-    "context"
-    "database/sql"
-    "errors"
-    "fmt"
-    "html/template"
-    "log"
-    "net/http"
-    "os"
-    "os/signal"
-    "sync/atomic"
-    "syscall"
-    "time"
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"html/template"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync/atomic"
+	"syscall"
+	"time"
 
-    orm "github.com/dministrator/flow/internal/orm"
-    "github.com/uptrace/bun"
+	orm "github.com/dministrator/flow/internal/orm"
+	"github.com/uptrace/bun"
 )
 
 // Middleware is a function that wraps an http.Handler. Order matters: middleware
@@ -40,71 +40,71 @@ type Middleware func(http.Handler) http.Handler
 // Logger defines the subset of logging functionality Flow expects. Users can
 // provide their own logger as long as it implements these methods.
 type Logger interface {
-    Printf(format string, v ...interface{})
+	Printf(format string, v ...interface{})
 }
 
 // App encapsulates the running web application.
 // It contains no global state and is safe for concurrent use after
 // construction (except for calling Start multiple times).
 type App struct {
-    Name           string
-    Addr           string
-    ReadTimeout    time.Duration
-    WriteTimeout   time.Duration
-    IdleTimeout    time.Duration
-    ShutdownTimeout time.Duration
+	Name            string
+	Addr            string
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	IdleTimeout     time.Duration
+	ShutdownTimeout time.Duration
 
-    logger Logger
+	logger Logger
 
-    // router is the underlying http.Handler providing routing logic. If nil,
-    // a default http.ServeMux is used.
-    router http.Handler
+	// router is the underlying http.Handler providing routing logic. If nil,
+	// a default http.ServeMux is used.
+	router http.Handler
 
-    // Sessions holds the session manager used by the App. If nil, sessions
-    // are disabled. Initialized with a default manager in New().
-    Sessions *SessionManager
+	// Sessions holds the session manager used by the App. If nil, sessions
+	// are disabled. Initialized with a default manager in New().
+	Sessions *SessionManager
 
-    // Views provides template rendering utilities for controllers and handlers.
-    Views *ViewManager
+	// Views provides template rendering utilities for controllers and handlers.
+	Views *ViewManager
 
-    middleware []Middleware
+	middleware []Middleware
 
-    server *http.Server
-    // db is the optional database connection attached to the App.
-    db *sql.DB
-    // bunAdapter holds an optional Bun adapter for ORM operations. If set,
-    // App.Bun() returns the underlying *bun.DB for convenience.
-    bunAdapter *orm.BunAdapter
+	server *http.Server
+	// db is the optional database connection attached to the App.
+	db *sql.DB
+	// bunAdapter holds an optional Bun adapter for ORM operations. If set,
+	// App.Bun() returns the underlying *bun.DB for convenience.
+	bunAdapter *orm.BunAdapter
 
-    // state indicates whether the server is running: 0 = idle, 1 = running,
-    // 2 = shutting down/stopped.
-    state int32
+	// state indicates whether the server is running: 0 = idle, 1 = running,
+	// 2 = shutting down/stopped.
+	state int32
 }
 
-    // SetBun attaches a BunAdapter to the App and also sets the underlying *sql.DB
-    // so existing DB helpers continue to work.
-    func (a *App) SetBun(b *orm.BunAdapter) {
-        if b == nil {
-            a.bunAdapter = nil
-            return
-        }
-        a.bunAdapter = b
-        if b.SQLDB != nil {
-            a.SetDB(b.SQLDB)
-        }
-    }
+// SetBun attaches a BunAdapter to the App and also sets the underlying *sql.DB
+// so existing DB helpers continue to work.
+func (a *App) SetBun(b *orm.BunAdapter) {
+	if b == nil {
+		a.bunAdapter = nil
+		return
+	}
+	a.bunAdapter = b
+	if b.SQLDB != nil {
+		a.SetDB(b.SQLDB)
+	}
+}
 
-    // Bun returns the underlying *bun.DB if configured, or nil otherwise.
-    func (a *App) Bun() *bun.DB {
-        if a == nil || a.bunAdapter == nil {
-            return nil
-        }
-        return a.bunAdapter.DB
-    }
+// Bun returns the underlying *bun.DB if configured, or nil otherwise.
+func (a *App) Bun() *bun.DB {
+	if a == nil || a.bunAdapter == nil {
+		return nil
+	}
+	return a.bunAdapter.DB
+}
 
 var (
-    // ErrAppAlreadyRunning is returned when Start/Run is called on an already-running App.
-    ErrAppAlreadyRunning = errors.New("app: already running")
+	// ErrAppAlreadyRunning is returned when Start/Run is called on an already-running App.
+	ErrAppAlreadyRunning = errors.New("app: already running")
 )
 
 // Option is a functional option for configuring an App at construction time.
@@ -112,209 +112,265 @@ type Option func(*App)
 
 // WithLogger sets a custom logger. If not provided, the standard log.Logger is used.
 func WithLogger(l Logger) Option {
-    return func(a *App) { a.logger = l }
+	return func(a *App) { a.logger = l }
 }
 
 // WithBun attaches a BunAdapter to the App during construction.
 func WithBun(b *orm.BunAdapter) Option {
-    return func(a *App) { a.SetBun(b) }
+	return func(a *App) { a.SetBun(b) }
 }
 
 // WithAddr sets the listen address (eg. ":3000").
 func WithAddr(addr string) Option {
-    return func(a *App) { a.Addr = addr }
+	return func(a *App) { a.Addr = addr }
 }
 
 // WithShutdownTimeout sets the graceful shutdown timeout.
 func WithShutdownTimeout(d time.Duration) Option {
-    return func(a *App) { a.ShutdownTimeout = d }
+	return func(a *App) { a.ShutdownTimeout = d }
 }
 
 // WithViewsDefaultLayout configures the default layout file (relative to the
 // Views.TemplateDir) that will be parsed before rendering views.
 func WithViewsDefaultLayout(layout string) Option {
-    return func(a *App) {
-        if a == nil {
-            return
-        }
-        if a.Views == nil {
-            a.Views = NewViewManager("views")
-        }
-        a.Views.SetDefaultLayout(layout)
-    }
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		if a.Views == nil {
+			a.Views = NewViewManager("views")
+		}
+		a.Views.SetDefaultLayout(layout)
+	}
 }
 
 // WithViewsDevMode toggles development mode for the ViewManager. When true
 // templates are reparsed on each render and caching is disabled.
 func WithViewsDevMode(dev bool) Option {
-    return func(a *App) {
-        if a == nil {
-            return
-        }
-        if a.Views == nil {
-            a.Views = NewViewManager("views")
-        }
-        a.Views.SetDevMode(dev)
-    }
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		if a.Views == nil {
+			a.Views = NewViewManager("views")
+		}
+		a.Views.SetDevMode(dev)
+	}
 }
 
 // WithViewsFuncMap sets the template FuncMap on the ViewManager during App construction.
 func WithViewsFuncMap(m template.FuncMap) Option {
-    return func(a *App) {
-        if a == nil {
-            return
-        }
-        if a.Views == nil {
-            a.Views = NewViewManager("views")
-        }
-        a.Views.SetFuncMap(m)
-    }
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		if a.Views == nil {
+			a.Views = NewViewManager("views")
+		}
+		a.Views.SetFuncMap(m)
+	}
+}
+
+// WithLogging registers the built-in logging middleware using the App's logger.
+func WithLogging() Option {
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		a.Use(LoggingMiddleware(a.logger))
+	}
+}
+
+// WithRequestID registers the request ID middleware. If headerName is empty
+// the default header "X-Request-ID" is used.
+func WithRequestID(headerName string) Option {
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		a.Use(RequestIDMiddleware(headerName))
+	}
+}
+
+// WithTimeout registers a per-request timeout middleware. A zero duration
+// disables the timeout.
+func WithTimeout(d time.Duration) Option {
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		a.Use(TimeoutMiddleware(d))
+	}
+}
+
+// WithMetrics registers a basic metrics middleware that sets X-Response-Time.
+func WithMetrics() Option {
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		a.Use(MetricsMiddleware())
+	}
+}
+
+// WithDefaultMiddleware registers a sensible default middleware stack:
+// Recovery, RequestID, Logging and Metrics.
+func WithDefaultMiddleware() Option {
+	return func(a *App) {
+		if a == nil {
+			return
+		}
+		a.Use(Recovery(a.logger))
+		a.Use(RequestIDMiddleware(""))
+		a.Use(LoggingMiddleware(a.logger))
+		a.Use(MetricsMiddleware())
+	}
 }
 
 // New creates a configured App instance. It never starts network listeners.
 func New(name string, opts ...Option) *App {
-    // default logger
-    stdLogger := log.New(os.Stdout, "[flow] ", log.LstdFlags)
+	// default logger
+	stdLogger := log.New(os.Stdout, "[flow] ", log.LstdFlags)
 
-    a := &App{
-        Name:            name,
-        Addr:            ":3000",
-        ReadTimeout:     5 * time.Second,
-        WriteTimeout:    10 * time.Second,
-        IdleTimeout:     120 * time.Second,
-        ShutdownTimeout: 10 * time.Second,
-        logger:          stdLogger,
-        router:          http.NewServeMux(),
-        Views:           NewViewManager("views"),
-        Sessions:        DefaultSessionManager(),
-        middleware:      make([]Middleware, 0),
-    }
+	a := &App{
+		Name:            name,
+		Addr:            ":3000",
+		ReadTimeout:     5 * time.Second,
+		WriteTimeout:    10 * time.Second,
+		IdleTimeout:     120 * time.Second,
+		ShutdownTimeout: 10 * time.Second,
+		logger:          stdLogger,
+		router:          http.NewServeMux(),
+		Views:           NewViewManager("views"),
+		Sessions:        DefaultSessionManager(),
+		middleware:      make([]Middleware, 0),
+	}
 
-    for _, opt := range opts {
-        opt(a)
-    }
+	for _, opt := range opts {
+		opt(a)
+	}
 
-    return a
+	return a
 }
 
 // Use appends middleware to the middleware stack.
 // Middlewares are applied in registration order with the first registered
 // being the outer-most wrapper.
 func (a *App) Use(m Middleware) {
-    a.middleware = append(a.middleware, m)
+	a.middleware = append(a.middleware, m)
 }
 
 // SetRouter replaces the App's router. If nil is provided the default
 // ServeMux is used.
 func (a *App) SetRouter(h http.Handler) {
-    if h == nil {
-        h = http.NewServeMux()
-    }
-    a.router = h
+	if h == nil {
+		h = http.NewServeMux()
+	}
+	a.router = h
 }
 
 // Handler builds the final http.Handler by applying middleware to the router.
 func (a *App) Handler() http.Handler {
-    var h http.Handler = a.router
-    // Apply middleware in reverse so the first registered is outer-most.
-    for i := len(a.middleware) - 1; i >= 0; i-- {
-        h = a.middleware[i](h)
-    }
-    return h
+	var h http.Handler = a.router
+	// Apply middleware in reverse so the first registered is outer-most.
+	for i := len(a.middleware) - 1; i >= 0; i-- {
+		h = a.middleware[i](h)
+	}
+	return h
 }
 
 // Start starts the HTTP server in a background goroutine and returns immediately.
 // It returns ErrAppAlreadyRunning if called while the server is already running.
 func (a *App) Start() error {
-    if !atomic.CompareAndSwapInt32(&a.state, 0, 1) {
-        return ErrAppAlreadyRunning
-    }
+	if !atomic.CompareAndSwapInt32(&a.state, 0, 1) {
+		return ErrAppAlreadyRunning
+	}
 
-    srv := &http.Server{
-        Addr:         a.Addr,
-        Handler:      a.Handler(),
-        ReadTimeout:  a.ReadTimeout,
-        WriteTimeout: a.WriteTimeout,
-        IdleTimeout:  a.IdleTimeout,
-    }
-    a.server = srv
+	srv := &http.Server{
+		Addr:         a.Addr,
+		Handler:      a.Handler(),
+		ReadTimeout:  a.ReadTimeout,
+		WriteTimeout: a.WriteTimeout,
+		IdleTimeout:  a.IdleTimeout,
+	}
+	a.server = srv
 
-    go func() {
-        a.logger.Printf("starting %s on %s", a.Name, a.Addr)
-        // http.ErrServerClosed is returned on normal shutdown and should not be logged as an error
-        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            a.logger.Printf("server error: %v", err)
-        }
-        // transition to stopped
-        atomic.StoreInt32(&a.state, 2)
-    }()
+	go func() {
+		a.logger.Printf("starting %s on %s", a.Name, a.Addr)
+		// http.ErrServerClosed is returned on normal shutdown and should not be logged as an error
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			a.logger.Printf("server error: %v", err)
+		}
+		// transition to stopped
+		atomic.StoreInt32(&a.state, 2)
+	}()
 
-    return nil
+	return nil
 }
 
 // Run starts the server and blocks until a termination signal is received or
 // the context is canceled. It performs a graceful shutdown with the configured
 // ShutdownTimeout.
 func (a *App) Run(ctx context.Context) error {
-    if err := a.Start(); err != nil {
-        return err
-    }
+	if err := a.Start(); err != nil {
+		return err
+	}
 
-    // listen for termination signals or context cancellation
-    sigCh := make(chan os.Signal, 1)
-    signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-    defer signal.Stop(sigCh)
+	// listen for termination signals or context cancellation
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
 
-    select {
-    case <-ctx.Done():
-        a.logger.Printf("context canceled, shutting down: %v", ctx.Err())
-    case sig := <-sigCh:
-        a.logger.Printf("received signal %s, shutting down", sig)
-    }
+	select {
+	case <-ctx.Done():
+		a.logger.Printf("context canceled, shutting down: %v", ctx.Err())
+	case sig := <-sigCh:
+		a.logger.Printf("received signal %s, shutting down", sig)
+	}
 
-    // perform graceful shutdown with timeout
-    t := a.ShutdownTimeout
-    if t <= 0 {
-        t = 10 * time.Second
-    }
-    ctxShutdown, cancel := context.WithTimeout(context.Background(), t)
-    defer cancel()
+	// perform graceful shutdown with timeout
+	t := a.ShutdownTimeout
+	if t <= 0 {
+		t = 10 * time.Second
+	}
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), t)
+	defer cancel()
 
-    return a.Shutdown(ctxShutdown)
+	return a.Shutdown(ctxShutdown)
 }
 
 // Shutdown gracefully stops the HTTP server. It is safe to call multiple times.
 func (a *App) Shutdown(ctx context.Context) error {
-    // if server is nil, nothing to do
-    if a.server == nil {
-        return nil
-    }
-    // only attempt shutdown once
-    if !atomic.CompareAndSwapInt32(&a.state, 1, 2) {
-        // if state is already 2 (shutting down/stopped), return nil
-        if atomic.LoadInt32(&a.state) == 2 {
-            return nil
-        }
-    }
+	// if server is nil, nothing to do
+	if a.server == nil {
+		return nil
+	}
+	// only attempt shutdown once
+	if !atomic.CompareAndSwapInt32(&a.state, 1, 2) {
+		// if state is already 2 (shutting down/stopped), return nil
+		if atomic.LoadInt32(&a.state) == 2 {
+			return nil
+		}
+	}
 
-    a.logger.Printf("shutting down %s", a.Name)
-    if err := a.server.Shutdown(ctx); err != nil {
-        // if forced close is required, attempt Close
-        a.logger.Printf("shutdown error: %v; attempting force close", err)
-        if cerr := a.server.Close(); cerr != nil {
-            a.logger.Printf("force close error: %v", cerr)
-        }
-        return fmt.Errorf("shutdown: %w", err)
-    }
+	a.logger.Printf("shutting down %s", a.Name)
+	if err := a.server.Shutdown(ctx); err != nil {
+		// if forced close is required, attempt Close
+		a.logger.Printf("shutdown error: %v; attempting force close", err)
+		if cerr := a.server.Close(); cerr != nil {
+			a.logger.Printf("force close error: %v", cerr)
+		}
+		return fmt.Errorf("shutdown: %w", err)
+	}
 
-    a.logger.Printf("shutdown complete")
-    return nil
+	a.logger.Printf("shutdown complete")
+	return nil
 }
 
 // ServeHTTP implements http.Handler so App can be used directly in tests.
 // It dispatches to the composed handler (router + middleware).
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    a.Handler().ServeHTTP(w, r)
+	a.Handler().ServeHTTP(w, r)
 }
 
 // Default middleware helpers
@@ -322,17 +378,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Recovery is a small middleware that recovers from panics and returns a
 // 500 response. It logs the panic via the App logger.
 func Recovery(logger Logger) Middleware {
-    return func(next http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            defer func() {
-                if rec := recover(); rec != nil {
-                    logger.Printf("panic: %v", rec)
-                    http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-                }
-            }()
-            next.ServeHTTP(w, r)
-        })
-    }
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if rec := recover(); rec != nil {
+					logger.Printf("panic: %v", rec)
+					http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // TODO: add more built-in middleware: logging, request ID, metrics, timeouts

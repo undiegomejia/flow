@@ -1,13 +1,13 @@
 package flow
 
 import (
+	"html/template"
 	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-	"html/template"
 )
 
 // helper to write file creating parent dirs

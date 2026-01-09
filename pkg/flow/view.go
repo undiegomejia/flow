@@ -27,8 +27,8 @@ type ViewManager struct {
 
 	// DevMode disables caching and forces reparsing on each Render call when true.
 	DevMode bool
-	mu          sync.RWMutex
-	cache       map[string]*template.Template
+	mu      sync.RWMutex
+	cache   map[string]*template.Template
 }
 
 // NewViewManager constructs a ViewManager which will look for templates in
