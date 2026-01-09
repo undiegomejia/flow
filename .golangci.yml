@@ -1,0 +1,28 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - gofmt
+    - goimports
+    - gosimple
+    - unused
+    - ineffassign
+    - typecheck
+    - bodyclose
+
+issues:
+  exclude-use-default: false
+
+linters-settings:
+  errcheck:
+    # ignore common places where error checks are noisy
+    ignore: ["Close", "Write", "Flush"]
+
+exclude:
+  - _gen.go
+  - 
