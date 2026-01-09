@@ -59,11 +59,15 @@ var serveCmd = &cobra.Command{
             // run watcher which spawns go run ./cmd/flow serve --no-watch ...
             ctx, cancel := context.WithCancel(context.Background())
             defer cancel()
-            // watch current directory by default
-            paths := []string{"."}
+            // read watch paths and ignore patterns from flags
+            watchPaths, _ := cmd.Flags().GetStringSlice("watch-paths")
+            if len(watchPaths) == 0 {
+                watchPaths = []string{"."}
+            }
+            ignorePatterns, _ := cmd.Flags().GetStringSlice("watch-ignore")
             // build child args: serve --no-watch --addr <addr>
             childArgs := []string{"serve", "--no-watch", "--addr", serveAddr}
-            return WatchAndRun(ctx, paths, childArgs)
+            return WatchAndRun(ctx, watchPaths, ignorePatterns, childArgs)
         }
 
         // Normal in-process serve (or --no-watch child)
@@ -103,6 +107,8 @@ func init() {
     serveCmd.Flags().Bool("watch", false, "watch files and auto-restart server on changes")
     // internal flag used by watcher to avoid recursive watch
     serveCmd.Flags().Bool("no-watch", false, "(internal) do not start file watcher")
+    serveCmd.Flags().StringSlice("watch-paths", []string{"."}, "paths to watch (comma-separated)")
+    serveCmd.Flags().StringSlice("watch-ignore", []string{".git", "vendor", "node_modules"}, "paths or patterns to ignore (comma-separated)")
 }
 
 var versionCmd = &cobra.Command{

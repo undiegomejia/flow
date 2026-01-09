@@ -16,12 +16,38 @@ import (
 // WatchAndRun watches the given paths and runs the provided command (cmdArgs)
 // as a child process. On file changes it restarts the child. It returns when
 // the parent context is cancelled.
-func WatchAndRun(ctx context.Context, watchPaths []string, cmdArgs []string) error {
+func WatchAndRun(ctx context.Context, watchPaths []string, ignorePatterns []string, cmdArgs []string) error {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
 	defer w.Close()
+
+	// helper to test whether a path should be ignored based on ignorePatterns
+	ignored := func(path string) bool {
+		base := filepath.Base(path)
+		for _, pat := range ignorePatterns {
+			pat = strings.TrimSpace(pat)
+			if pat == "" {
+				continue
+			}
+			// exact base match
+			if base == pat {
+				return true
+			}
+			// full path contains pattern or prefix match
+			if strings.HasPrefix(path, pat) || strings.Contains(path, pat) {
+				return true
+			}
+			// glob-like match
+			if strings.Contains(pat, "*") {
+				if ok, _ := filepath.Match(pat, path); ok {
+					return true
+				}
+			}
+		}
+		return false
+	}
 
 	addPaths := func(paths []string) error {
 		for _, p := range paths {
@@ -37,12 +63,13 @@ func WatchAndRun(ctx context.Context, watchPaths []string, cmdArgs []string) err
 				if !info.IsDir() {
 					return nil
 				}
-				// ignore .git, vendor, node_modules
-			base := filepath.Base(path)
-			if base == ".git" || base == "vendor" || base == "node_modules" {
-				return filepath.SkipDir
-			}
-			_ = w.Add(path)
+				if ignored(path) {
+					return filepath.SkipDir
+				}
+				if err := w.Add(path); err != nil {
+					// ignore watcher add errors
+					return nil
+				}
 			return nil
 		})
 		}
@@ -117,6 +144,9 @@ func WatchAndRun(ctx context.Context, watchPaths []string, cmdArgs []string) err
 			}
 			// ignore editor temp files
 			if strings.HasSuffix(ev.Name, "~") || strings.HasSuffix(ev.Name, ".swp") {
+				continue
+			}
+			if ignored(ev.Name) {
 				continue
 			}
 			fmt.Printf("[watch] change detected: %s\n", ev.Name)
