@@ -1,0 +1,89 @@
+# Generator — flags, field syntax and examples
+
+Flow includes a small code generator that can scaffold controllers, models, views
+and SQL migrations. The generator is intentionally conservative: it won't
+overwrite files unless you pass `--force`, and it supports a compact field
+specification syntax for describing model columns.
+
+## CLI flags
+
+- `--force` — overwrite existing files when generating (default: false).
+- `--skip-migrations` — do not create migration files when generating scaffolds.
+- `--no-views` — do not create view templates when generating scaffolds.
+- `--target` — target project root (defaults to current working directory).
+
+These flags are available on the `flow generate` subcommands. The CLI builds
+the generator into a temporary binary in integration tests to validate behavior.
+
+## Field specification syntax
+
+Field specifications are provided as variadic arguments to `flow generate model`
+and `flow generate scaffold` and follow the form:
+
+  name
+  name:type
+  name:type,opt1,opt2=val
+
+Examples:
+
+- `title` (defaults to `string`)
+- `age:int` (integer column)
+- `published_at:datetime` (uses Go `time.Time` and SQL `DATETIME`)
+- `price:decimal(10,2),default=0` (decimal with precision/scale and default)
+- `name:varchar(50),unique` (varchar with size and unique constraint)
+- `email:string,nullable,index` (nullable string and an index)
+
+Supported base types include: `string`/`text`, `int`/`integer`, `int64`,
+`bool`/`boolean`, `float`/`float64`, `datetime`/`time`/`timestamp`,
+`decimal(precision,scale)` and `varchar(size)` (or `char(size)`).
+
+Options supported after the base type:
+
+- `nullable` — makes the Go field a pointer type and the SQL column nullable.
+- `unique` — adds a UNIQUE constraint to the column.
+- `index` — generator will add CREATE INDEX statements to the migration.
+- `default=<value>` — includes a DEFAULT clause in the migration SQL.
+- `ref=<table.column>` or `references=<table.column>` — records a foreign-key reference in the FieldSpec (generator does not currently emit FK constraints automatically).
+
+Notes:
+
+- When a field is declared nullable the generated Go type becomes a pointer
+  (e.g. `*string`, `*time.Time`). The generated JSON tag will include
+  `omitempty` for nullable fields.
+- `decimal` maps to Go `float64` in generated models and the SQL type will
+  include the specified precision/scale if provided.
+
+## Examples
+
+Generate a model only (into the current directory):
+
+```bash
+# generate a Post model with title:string and published_at:datetime
+flow generate model Post title:string published_at:datetime
+```
+
+Generate a scaffold (controller, model, views and migrations):
+
+```bash
+# scaffold a post resource and create migration files
+flow generate scaffold post title:string published_at:datetime
+```
+
+Generate a scaffold but skip migrations and do not create views:
+
+```bash
+flow generate scaffold post title:string --skip-migrations --no-views
+```
+
+Force overwriting existing files when regenerating:
+
+```bash
+flow generate model Post title:string --force
+```
+
+## Testing and integration
+
+The repository includes CLI integration tests under `internal/generator` that
+build the CLI and run the generator into temporary directories. Those tests
+exercise the flags (`--force`, `--skip-migrations`, `--no-views`) and verify
+the generated files and migration SQL contents.

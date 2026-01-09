@@ -202,6 +202,8 @@ New generator features:
  - Generated models now include small convenience methods (`Save(ctx, app)` and `Delete(ctx, app)`) which call into the `flow` CRUD helpers. This makes generated code immediately usable with the Bun PoC adapter.
  - Generator integration tests: the repo contains CLI integration tests that build the CLI, run generators into a temp project, and assert generated files and migration SQL. There's also a compile-and-run test that builds a tiny program against the generated model to ensure the generated code compiles and runs.
 
+See `docs/generator.md` for detailed generator flag documentation, field syntax and examples.
+
 ## Contributing
 
 The project is organized to be easy to contribute to:
