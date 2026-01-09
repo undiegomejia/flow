@@ -6,40 +6,30 @@ linters:
   enable:
     - govet
     - staticcheck
-    run:
-      timeout: 5m
-      tests: true
+    - errcheck
+    - gofmt
+    - goimports
+    - gosimple
+    - unused
+    - ineffassign
+    - typecheck
+    - bodyclose
 
-    linters:
-      enable:
-        - govet
-        - staticcheck
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    - linters:
         - errcheck
-        - gofmt
-        - goimports
-        - gosimple
-        - unused
-        - ineffassign
-        - typecheck
-        - bodyclose
+      # ignore errcheck findings that match these simple function names
+      text: "Close"
+    - linters:
+        - errcheck
+      text: "Write"
+    - linters:
+        - errcheck
+      text: "Flush"
 
-    issues:
-      exclude-use-default: false
-      exclude-rules:
-        - linters:
-            - errcheck
-          # ignore errcheck findings that match these simple function names
-          text: "Close"
-        - linters:
-            - errcheck
-          text: "Write"
-        - linters:
-            - errcheck
-          text: "Flush"
+linters-settings: {}
 
-    # Note: removed custom errcheck.ignore setting because some golangci-lint
-    # versions expect a string; keep default behavior to avoid config errors.
-    linters-settings: {}
-
-    exclude:
-      - _gen.go
+exclude:
+  - _gen.go

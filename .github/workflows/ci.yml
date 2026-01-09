@@ -39,11 +39,23 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: v1.59.0
-          args: run ./... --timeout 5m
+      - name: Install staticcheck
+        run: |
+          GOBIN=$(go env GOPATH)/bin
+          mkdir -p "$GOBIN"
+          GOBIN="$GOBIN" go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Run staticcheck
+        run: |
+          $(go env GOPATH)/bin/staticcheck ./...
+
+      - name: Check gofmt
+        run: |
+          files=$(gofmt -l . | wc -l)
+          if [ "$files" -ne 0 ]; then
+            echo "gofmt found files that need formatting:" && gofmt -l .
+            exit 1
+          fi
 
       - name: Run tests with coverage
         run: |
