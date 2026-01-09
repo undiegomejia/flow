@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+// testCtrl is a simple ResourceController used by tests.
+type testCtrl struct{}
+
+func (c *testCtrl) Index(w http.ResponseWriter, r *http.Request)   { _, _ = w.Write([]byte("i")) }
+func (c *testCtrl) New(w http.ResponseWriter, r *http.Request)     { _, _ = w.Write([]byte("n")) }
+func (c *testCtrl) Create(w http.ResponseWriter, r *http.Request)  { _, _ = w.Write([]byte("c")) }
+func (c *testCtrl) Show(w http.ResponseWriter, r *http.Request)    { _, _ = w.Write([]byte("s")) }
+func (c *testCtrl) Edit(w http.ResponseWriter, r *http.Request)    { _, _ = w.Write([]byte("e")) }
+func (c *testCtrl) Update(w http.ResponseWriter, r *http.Request)  { _, _ = w.Write([]byte("u")) }
+func (c *testCtrl) Destroy(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("d")) }
+
 func TestRouterBasicMatching(t *testing.T) {
 	t.Run("static route", func(t *testing.T) {
 		r := New()
@@ -160,4 +171,21 @@ func TestNamedRoutesAndMiddleware(t *testing.T) {
 			t.Fatalf("expected middleware then handler called, got %s", called)
 		}
 	})
+}
+
+func TestResourcesRegisterNames(t *testing.T) {
+	r := New()
+	c := &testCtrl{}
+	if err := r.Resources("users", c); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// ensure named URL generation works for show
+	p, err := r.URL("users_show", map[string]string{"id": "7"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p != "/users/7" {
+		t.Fatalf("expected /users/7 got %s", p)
+	}
 }
