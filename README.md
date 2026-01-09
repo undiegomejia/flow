@@ -45,6 +45,39 @@ See `docs/bun.md` for more details on using generated Bun models and migrations.
 
 If you want a quick compile/run check for generated models, see `internal/generator/gen_compile_test.go` — it demonstrates generating a model into a temporary project, compiling a small program that uses the generated `Save`/`Delete` methods and running it to ensure end-to-end compilation.
 
+## Development: serve --watch (hot-reload)
+
+For a faster developer loop you can run the CLI in watch mode which restarts the server when source files change. The watcher lives in the CLI and spawns a child `go run ./cmd/flow serve --no-watch` process — the `--no-watch` flag is internal and prevents recursive watchers.
+
+Basic usage (defaults watch current directory and common source files):
+
+```bash
+# run watcher and serve on :3000
+flow serve --watch --addr :3000
+```
+
+Customize what to watch and what triggers a restart:
+
+- `--watch-paths` — comma-separated list of directories to watch (default: `.`).
+- `--watch-ignore` — comma-separated list of path names or simple patterns to ignore (default: `.git,vendor,node_modules`).
+- `--watch-ext` — comma-separated list of file extensions that should trigger a restart (default: `.go,.tmpl,.html,.sql`). If empty, all file changes are considered.
+
+Examples:
+
+```bash
+# watch only cmd and internal directories, ignore node_modules, and restart only on .go and .tmpl files
+flow serve --watch --watch-paths cmd,internal --watch-ignore node_modules --watch-ext .go,.tmpl
+
+# watch everything (no extension filter)
+flow serve --watch --watch-ext ""
+```
+
+Notes:
+
+- The watcher debounces rapid file events to avoid repeated restarts.
+- Default ignore patterns include `.git`, `vendor` and `node_modules` to avoid noisy events.
+- Use `--watch-ext` to reduce noise and speed up the loop (recommended).
+
 ## Install & Tests
 
 Make sure you have Go 1.20+ (project uses module mode). These commands assume a Linux environment — on Windows, run them inside WSL.
