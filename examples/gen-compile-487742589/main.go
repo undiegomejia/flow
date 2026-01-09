@@ -4,7 +4,7 @@ import (
     "context"
     "fmt"
     "log"
-    "time"
+    
 
     flow "github.com/dministrator/flow/pkg/flow"
     orm "github.com/dministrator/flow/internal/orm"
@@ -25,7 +25,7 @@ func main() {
         log.Fatalf("migrate: %v", err)
     }
 
-    p := &models.Post{Title: "compile-test-hello", PublishedAt: time.Now()}
+    p := &models.Post{Title: "compile-test-hello"}
     if err := p.Save(ctx, app); err != nil {
         log.Fatalf("save: %v", err)
     }
