@@ -146,6 +146,15 @@ func (c *Context) FormValue(key string) string {
 	return c.R.FormValue(key)
 }
 
+// Render is a convenience helper that uses the App's ViewManager to render
+// the named template. It returns an error if views are not configured.
+func (c *Context) Render(name string, data interface{}) error {
+	if c.App == nil || c.App.Views == nil {
+		return fmt.Errorf("render: views not configured")
+	}
+	return c.App.Views.Render(name, data, c)
+}
+
 // Session returns the session store for the current request, or nil if
 // sessions are not configured. Use Session().Get/Set/Delete to manage
 // session data. Session writes a cookie on Set/Delete/Save.

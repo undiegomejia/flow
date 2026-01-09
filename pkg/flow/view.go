@@ -17,6 +17,16 @@ import (
 // ViewManager holds template loading configuration and a simple cache.
 type ViewManager struct {
 	TemplateDir string
+	// DefaultLayout is the layout file name (relative to TemplateDir) that
+	// should be parsed before the view. Example: "layouts/application.html".
+	// If empty, the loader falls back to scanning `layouts/*.html`.
+	DefaultLayout string
+
+	// FuncMap contains template functions to register with parsed templates.
+	FuncMap template.FuncMap
+
+	// DevMode disables caching and forces reparsing on each Render call when true.
+	DevMode bool
 	mu          sync.RWMutex
 	cache       map[string]*template.Template
 }
@@ -24,7 +34,7 @@ type ViewManager struct {
 // NewViewManager constructs a ViewManager which will look for templates in
 // templateDir (relative to the working directory).
 func NewViewManager(templateDir string) *ViewManager {
-	return &ViewManager{TemplateDir: templateDir, cache: make(map[string]*template.Template)}
+	return &ViewManager{TemplateDir: templateDir, cache: make(map[string]*template.Template), FuncMap: template.FuncMap{}}
 }
 
 // Render loads (or retrieves from cache) the named template and executes it
@@ -50,20 +60,31 @@ func (v *ViewManager) Render(name string, data interface{}, ctx *Context) error 
 }
 
 func (v *ViewManager) loadTemplate(name string) (*template.Template, error) {
-	v.mu.RLock()
-	t, ok := v.cache[name]
-	v.mu.RUnlock()
-	if ok {
-		return t, nil
+	// If not in dev mode, try cache first.
+	if !v.DevMode {
+		v.mu.RLock()
+		t, ok := v.cache[name]
+		v.mu.RUnlock()
+		if ok {
+			return t, nil
+		}
 	}
 
-	// build list of candidate files: layouts, partials, shared, then the view
+	// build list of candidate files: default layout (if set), layouts, partials, shared, then the view
 	var files []string
 
-	// collect layouts (prefer application/layout order)
-	layoutGlob := filepath.Join(v.TemplateDir, "layouts", "*.html")
-	if lays, _ := filepath.Glob(layoutGlob); len(lays) > 0 {
-		files = append(files, lays...)
+	// if a DefaultLayout is specified, prefer it first
+	if v.DefaultLayout != "" {
+		defPath := filepath.Join(v.TemplateDir, v.DefaultLayout)
+		if _, err := os.Stat(defPath); err == nil {
+			files = append(files, defPath)
+		}
+	} else {
+		// collect layouts (prefer application/layout order)
+		layoutGlob := filepath.Join(v.TemplateDir, "layouts", "*.html")
+		if lays, _ := filepath.Glob(layoutGlob); len(lays) > 0 {
+			files = append(files, lays...)
+		}
 	}
 
 	// collect partials
@@ -85,15 +106,59 @@ func (v *ViewManager) loadTemplate(name string) (*template.Template, error) {
 	}
 	files = append(files, viewPath)
 
-	// parse template set
+	// parse template set and register FuncMap if provided
 	tpl := template.New(filepath.Base(viewPath))
+	if v.FuncMap != nil {
+		tpl = tpl.Funcs(v.FuncMap)
+	}
 	parsed, err := tpl.ParseFiles(files...)
 	if err != nil {
 		return nil, fmt.Errorf("parse templates %v: %w", files, err)
 	}
 
-	v.mu.Lock()
-	v.cache[name] = parsed
-	v.mu.Unlock()
+	if !v.DevMode {
+		v.mu.Lock()
+		v.cache[name] = parsed
+		v.mu.Unlock()
+	}
 	return parsed, nil
+}
+
+// SetDefaultLayout sets the default layout file (relative to TemplateDir).
+func (v *ViewManager) SetDefaultLayout(layout string) {
+	if v == nil {
+		return
+	}
+	v.mu.Lock()
+	v.DefaultLayout = layout
+	// clear cache to ensure layout change takes effect
+	v.cache = make(map[string]*template.Template)
+	v.mu.Unlock()
+}
+
+// SetFuncMap registers template functions to be available during parsing.
+// Changing the FuncMap clears the cache so new functions are available.
+func (v *ViewManager) SetFuncMap(m template.FuncMap) {
+	if v == nil {
+		return
+	}
+	v.mu.Lock()
+	v.FuncMap = m
+	v.cache = make(map[string]*template.Template)
+	v.mu.Unlock()
+}
+
+// SetDevMode toggles development mode. When true templates are reparsed on
+// every Render call and caching is disabled.
+func (v *ViewManager) SetDevMode(dev bool) {
+	if v == nil {
+		return
+	}
+	v.mu.Lock()
+	v.DevMode = dev
+	if dev {
+		// clear cache when entering dev mode
+		v.cache = make(map[string]*template.Template)
+	}
+	v.mu.Unlock()
 }

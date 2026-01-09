@@ -129,6 +129,34 @@ func WithShutdownTimeout(d time.Duration) Option {
     return func(a *App) { a.ShutdownTimeout = d }
 }
 
+// WithViewsDefaultLayout configures the default layout file (relative to the
+// Views.TemplateDir) that will be parsed before rendering views.
+func WithViewsDefaultLayout(layout string) Option {
+    return func(a *App) {
+        if a == nil {
+            return
+        }
+        if a.Views == nil {
+            a.Views = NewViewManager("views")
+        }
+        a.Views.SetDefaultLayout(layout)
+    }
+}
+
+// WithViewsDevMode toggles development mode for the ViewManager. When true
+// templates are reparsed on each render and caching is disabled.
+func WithViewsDevMode(dev bool) Option {
+    return func(a *App) {
+        if a == nil {
+            return
+        }
+        if a.Views == nil {
+            a.Views = NewViewManager("views")
+        }
+        a.Views.SetDevMode(dev)
+    }
+}
+
 // New creates a configured App instance. It never starts network listeners.
 func New(name string, opts ...Option) *App {
     // default logger
