@@ -11,6 +11,11 @@ linters:
     - errcheck
     - gofmt
     - goimports
+    - gosimple
+    - unused
+    - ineffassign
+    - typecheck
+    - bodyclose
 
 issues:
   exclude-use-default: false
