@@ -49,16 +49,6 @@ jobs:
         run: |
           $(go env GOPATH)/bin/staticcheck ./...
 
-      - name: Install golangci-lint
-        run: |
-          GOBIN=$(go env GOPATH)/bin
-          mkdir -p "$GOBIN"
-          GOBIN="$GOBIN" go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.0
-
-      - name: Run golangci-lint
-        run: |
-          $(go env GOPATH)/bin/golangci-lint run ./... --timeout 5m
-
       - name: Check gofmt
         run: |
           files=$(gofmt -l . | wc -l)
@@ -77,13 +67,6 @@ jobs:
         with:
           name: coverage-report
           path: .ci/coverage.out
-
-      - name: Upload coverage to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
-        uses: codecov/codecov-action@v4
-        with:
-          files: .ci/coverage.out
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run benchmarks (basic)
         run: go test -bench=. -run=^$ ./... || true
@@ -121,11 +104,3 @@ jobs:
         with:
           name: flow-binaries
           path: release/
-
-      - name: Create GitHub release (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: release/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

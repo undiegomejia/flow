@@ -146,10 +146,6 @@ CI enforces `gofmt` formatting. To format the repository locally you can run the
 
 The scripts run `gofmt -w .` (and `goimports -w .` if available) and print any remaining files that need formatting. After running, stage and commit the changes before pushing.
 
-## Coverage reporting
-
-This repository can upload coverage reports to Codecov. See `docs/codecov.md` for steps to create a Codecov token and add it to GitHub Secrets (`CODECOV_TOKEN`). Once present the CI will upload coverage and Codecov can show PR coverage and status checks.
-
 
 ## Key Concepts and Files
 
