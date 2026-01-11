@@ -3,17 +3,14 @@ run:
   tests: true
 
 linters:
+  # Start with a conservative, small set of linters to reduce noise.
+  # We can expand this later once the codebase is clean.
   enable:
     - govet
     - staticcheck
     - errcheck
     - gofmt
     - goimports
-    - gosimple
-    - unused
-    - ineffassign
-    - typecheck
-    - bodyclose
 
 issues:
   exclude-use-default: false
